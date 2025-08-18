@@ -16,13 +16,17 @@ const api = axios.create({
 // API functions
 export const customersAPI = {
   getOverview: (params = {}) => {
+    console.log('🔧 customersAPI.getOverview called with params:', params);
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         searchParams.append(key, value);
       }
     });
-    return api.get(`/customers/overview?${searchParams.toString()}`);
+    const url = `/customers/overview?${searchParams.toString()}`;
+    console.log('🌍 Final API URL:', `${API_BASE}${url}`);
+    console.log('🔑 Using token:', API_TOKEN);
+    return api.get(url);
   },
   
   getById: (customerId) => api.get(`/customers/${customerId}`),
