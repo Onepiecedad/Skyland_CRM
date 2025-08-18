@@ -256,28 +256,28 @@ async def get_leads(
     WHERE 1=1
     """
     
-    params = []
+    values = {}
     
     # Add filters
     if status:
-        query += f" AND status = ${len(params) + 1}"
-        params.append(status)
+        query += " AND status = :status"
+        values['status'] = status
     
     if intent:
-        query += f" AND intent = ${len(params) + 1}"
-        params.append(intent)
+        query += " AND intent = :intent"
+        values['intent'] = intent
     
     if urgency:
-        query += f" AND urgency = ${len(params) + 1}"
-        params.append(urgency)
+        query += " AND urgency = :urgency"
+        values['urgency'] = urgency
     
     if customer_id:
-        query += f" AND customer_id = ${len(params) + 1}"
-        params.append(customer_id)
+        query += " AND customer_id = :customer_id"
+        values['customer_id'] = customer_id
     
     if channel:
-        query += f" AND channel = ${len(params) + 1}"
-        params.append(channel)
+        query += " AND channel = :channel"
+        values['channel'] = channel
     
     # Add sorting
     valid_sorts = ["updated_at desc", "updated_at asc", "created_at desc", "created_at asc", "expected_close_date desc", "expected_close_date asc"]
@@ -287,11 +287,11 @@ async def get_leads(
         query += " ORDER BY updated_at DESC"
     
     # Add pagination
-    query += f" LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
-    params.extend([limit, offset])
+    query += " LIMIT :limit OFFSET :offset"
+    values.update({'limit': limit, 'offset': offset})
     
     try:
-        rows = await database.fetch_all(query=query, values=params)
+        rows = await database.fetch_all(query=query, values=values)
         return [Lead(**dict(row)) for row in rows]
     except Exception as e:
         logger.error(f"Error fetching leads: {e}")
