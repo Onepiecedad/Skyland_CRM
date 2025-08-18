@@ -191,11 +191,11 @@ async def get_customer(
     query = """
     SELECT customer_id, name, email, phone, created_at, updated_at
     FROM public.customers
-    WHERE customer_id = $1
+    WHERE customer_id = :customer_id
     """
     
     try:
-        row = await database.fetch_one(query=query, values=[customer_id])
+        row = await database.fetch_one(query=query, values={'customer_id': customer_id})
         if not row:
             raise HTTPException(status_code=404, detail="Customer not found")
         return Customer(**dict(row))
@@ -218,13 +218,17 @@ async def get_customer_thread(
     SELECT customer_id, event_type, occurred_at, title, body,
            ref_inbox_id, ref_lead_id, status, channel, source
     FROM public.customer_thread
-    WHERE customer_id = $1
+    WHERE customer_id = :customer_id
     ORDER BY occurred_at DESC
-    LIMIT $2 OFFSET $3
+    LIMIT :limit OFFSET :offset
     """
     
     try:
-        rows = await database.fetch_all(query=query, values=[customer_id, limit, offset])
+        rows = await database.fetch_all(query=query, values={
+            'customer_id': customer_id,
+            'limit': limit,
+            'offset': offset
+        })
         return [CustomerThread(**dict(row)) for row in rows]
     except Exception as e:
         logger.error(f"Error fetching customer thread for {customer_id}: {e}")
