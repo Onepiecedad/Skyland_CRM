@@ -99,7 +99,7 @@ class Inbox(BaseModel):
     phone: Optional[str]
     service_type: Optional[str]
     message_raw: Optional[str]
-    ai_json: Optional[Dict[str, Any]]
+    ai_json: Optional[str]  # Store as string, not dict
     dedupe_key: Optional[str]
     received_at: Optional[datetime]
     status: Optional[str]
@@ -107,7 +107,7 @@ class Inbox(BaseModel):
     urgency_level: Optional[str]
     customer_id: Optional[uuid.UUID]
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime]  # Make this optional
 
 # Authentication dependency
 async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
