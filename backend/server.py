@@ -142,12 +142,12 @@ async def get_customers_overview(
     WHERE 1=1
     """
     
-    params = []
+    values = {}
     
     # Add search filter
     if q:
-        query += " AND (name ILIKE $" + str(len(params) + 1) + " OR email ILIKE $" + str(len(params) + 2) + " OR phone ILIKE $" + str(len(params) + 3) + ")"
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+        query += " AND (name ILIKE :search OR email ILIKE :search OR phone ILIKE :search)"
+        values['search'] = f"%{q}%"
     
     # Add unread messages filter
     if has_unread is not None:
@@ -171,11 +171,11 @@ async def get_customers_overview(
         query += " ORDER BY latest_activity_at DESC"
     
     # Add pagination
-    query += f" LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
-    params.extend([limit, offset])
+    query += " LIMIT :limit OFFSET :offset"
+    values.update({'limit': limit, 'offset': offset})
     
     try:
-        rows = await database.fetch_all(query=query, values=params)
+        rows = await database.fetch_all(query=query, values=values)
         return [CustomerOverview(**dict(row)) for row in rows]
     except Exception as e:
         logger.error(f"Error fetching customers overview: {e}")
