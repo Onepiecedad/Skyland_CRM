@@ -21,6 +21,7 @@ export function CustomersOverview() {
 
   const fetchCustomers = async () => {
     try {
+      console.log('🔍 Starting fetchCustomers...');
       setLoading(true);
       const params = {
         q: searchQuery || undefined,
@@ -30,12 +31,22 @@ export function CustomersOverview() {
         limit: 50
       };
       
+      console.log('📋 API params:', params);
+      console.log('🌐 Making API call to customersAPI.getOverview...');
+      
       const response = await customersAPI.getOverview(params);
+      console.log('✅ API response received:', response);
+      console.log('📊 Customer data:', response.data);
+      
       setCustomers(response.data);
+      console.log('💾 Customers state updated');
     } catch (error) {
-      console.error('Error fetching customers:', error);
+      console.error('❌ Error in fetchCustomers:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error response:', error.response);
       toast.error('Failed to fetch customers');
     } finally {
+      console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   };
