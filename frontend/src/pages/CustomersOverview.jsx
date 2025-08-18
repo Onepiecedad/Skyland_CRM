@@ -34,11 +34,29 @@ export function CustomersOverview() {
       console.log('📋 API params:', params);
       console.log('🌐 Making API call to customersAPI.getOverview...');
       
-      const response = await customersAPI.getOverview(params);
-      console.log('✅ API response received:', response);
-      console.log('📊 Customer data:', response.data);
+      // Try using fetch instead of axios to see if that works
+      const url = `${process.env.REACT_APP_BACKEND_URL}/api/customers/overview?sort=latest_activity_at desc&limit=50`;
+      console.log('🌍 Trying fetch with URL:', url);
       
-      setCustomers(response.data);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer skyland_dev_token_123',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('✅ Fetch response received:', response);
+      console.log('📊 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📊 Customer data:', data);
+      
+      setCustomers(data);
       console.log('💾 Customers state updated');
     } catch (error) {
       console.error('❌ Error in fetchCustomers:', error);
