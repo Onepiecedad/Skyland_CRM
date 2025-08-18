@@ -7,6 +7,7 @@ const API_TOKEN = 'skyland_dev_token_123';
 // Configure axios instance
 const api = axios.create({
   baseURL: API_BASE,
+  timeout: 30000, // 30 seconds timeout
   headers: {
     'Authorization': `Bearer ${API_TOKEN}`,
     'Content-Type': 'application/json',
