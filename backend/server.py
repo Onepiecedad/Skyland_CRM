@@ -320,31 +320,31 @@ async def get_inbox(
     WHERE 1=1
     """
     
-    params = []
+    values = {}
     
     # Handle unlinked filter (common use case)
     if unlinked_only:
         query += " AND customer_id IS NULL"
     elif customer_id is not None:
-        query += f" AND customer_id = ${len(params) + 1}"
-        params.append(customer_id)
+        query += " AND customer_id = :customer_id"
+        values['customer_id'] = customer_id
     
     # Add other filters
     if status:
-        query += f" AND status = ${len(params) + 1}"
-        params.append(status)
+        query += " AND status = :status"
+        values['status'] = status
     
     if type:
-        query += f" AND type = ${len(params) + 1}"
-        params.append(type)
+        query += " AND type = :type"
+        values['type'] = type
     
     if source:
-        query += f" AND source = ${len(params) + 1}"
-        params.append(source)
+        query += " AND source = :source"
+        values['source'] = source
     
     if channel:
-        query += f" AND channel = ${len(params) + 1}"
-        params.append(channel)
+        query += " AND channel = :channel"
+        values['channel'] = channel
     
     # Add sorting
     valid_sorts = ["received_at desc", "received_at asc", "created_at desc", "created_at asc"]
@@ -354,11 +354,11 @@ async def get_inbox(
         query += " ORDER BY received_at DESC"
     
     # Add pagination
-    query += f" LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
-    params.extend([limit, offset])
+    query += " LIMIT :limit OFFSET :offset"
+    values.update({'limit': limit, 'offset': offset})
     
     try:
-        rows = await database.fetch_all(query=query, values=params)
+        rows = await database.fetch_all(query=query, values=values)
         return [Inbox(**dict(row)) for row in rows]
     except Exception as e:
         logger.error(f"Error fetching inbox: {e}")
