@@ -183,7 +183,7 @@ async def get_customers_overview(
 
 @api_router.get("/customers/{customer_id}", response_model=Customer)
 async def get_customer(
-    customer_id: uuid.UUID = Path(...),
+    customer_id: uuid.UUID = PathParam(...),
     _: str = Depends(verify_token)
 ):
     """Get individual customer details"""
