@@ -207,7 +207,7 @@ async def get_customer(
 
 @api_router.get("/customers/{customer_id}/thread", response_model=List[CustomerThread])
 async def get_customer_thread(
-    customer_id: uuid.UUID = Path(...),
+    customer_id: uuid.UUID = PathParam(...),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     _: str = Depends(verify_token)
