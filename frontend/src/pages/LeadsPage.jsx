@@ -293,11 +293,32 @@ export function LeadsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={`/customers/${lead.customer_id}`}>
-                        View Customer
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button asChild size="sm" variant="outline">
+                        <Link to={`/customers/${lead.customer_id}`}>
+                          View Customer
+                        </Link>
+                      </Button>
+                      
+                      <LeadForm 
+                        lead={lead} 
+                        onSuccess={handleLeadSuccess}
+                      >
+                        <Button size="sm" variant="ghost">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </LeadForm>
+                      
+                      <DeleteConfirmDialog
+                        title="Delete Lead"
+                        description={`Are you sure you want to delete this lead "${lead.summary || 'Untitled Lead'}"? This action cannot be undone.`}
+                        onConfirm={() => handleDeleteLead(lead.lead_id)}
+                      >
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </DeleteConfirmDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
