@@ -97,8 +97,16 @@ export function LeadsPage() {
           <h1 className="text-3xl font-bold">Leads</h1>
           <p className="text-muted-foreground">Track and manage all sales opportunities</p>
         </div>
-        <div className="text-sm text-muted-foreground">
-          {leads.length} leads
+        <div className="flex items-center gap-3">
+          <LeadForm onSuccess={handleLeadSuccess}>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              New Lead
+            </Button>
+          </LeadForm>
+          <div className="text-sm text-muted-foreground">
+            {leads.length} leads
+          </div>
         </div>
       </div>
 
