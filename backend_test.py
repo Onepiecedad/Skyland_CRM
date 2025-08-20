@@ -256,9 +256,11 @@ class SkylandCRMTester:
         
         # Test CREATE customer
         try:
+            import time
+            timestamp = int(time.time())
             customer_data = {
                 "name": "Erik Svensson",
-                "email": "erik.svensson@marinservice.se", 
+                "email": f"erik.svensson.{timestamp}@marinservice.se", 
                 "phone": "+46701234567"
             }
             
