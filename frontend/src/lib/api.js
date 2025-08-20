@@ -59,6 +59,12 @@ export const leadsAPI = {
     });
     return api.get(`/leads?${searchParams.toString()}`);
   },
+
+  create: (leadData) => api.post('/leads', leadData),
+  
+  update: (leadId, leadData) => api.put(`/leads/${leadId}`, leadData),
+  
+  delete: (leadId) => api.delete(`/leads/${leadId}`),
 };
 
 export const inboxAPI = {
