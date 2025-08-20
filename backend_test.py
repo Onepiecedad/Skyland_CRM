@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, List
 
 class SkylandCRMTester:
-    def __init__(self, base_url="https://skylight-crm.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://work-together-2.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.token = "skyland_dev_token_123"
         self.headers = {
