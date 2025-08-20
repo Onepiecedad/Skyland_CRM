@@ -51,6 +51,22 @@ export function InboxPage() {
     fetchInboxItems();
   }, [statusFilter, typeFilter, sourceFilter, channelFilter, unlinkedOnly, sortBy]);
 
+  const handleMessageSuccess = (updatedMessage) => {
+    // Refresh the inbox list
+    fetchInboxItems();
+  };
+
+  const handleDeleteMessage = async (inboxId) => {
+    try {
+      await inboxAPI.delete(inboxId);
+      toast.success('Message deleted successfully');
+      fetchInboxItems(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      throw error; // Re-throw to be caught by DeleteConfirmDialog
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
