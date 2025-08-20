@@ -307,13 +307,34 @@ export function InboxPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {item.customer_id && (
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={`/customers/${item.customer_id}`}>
-                          View Details
-                        </Link>
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {item.customer_id && (
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={`/customers/${item.customer_id}`}>
+                            View Customer
+                          </Link>
+                        </Button>
+                      )}
+                      
+                      <InboxForm 
+                        message={item} 
+                        onSuccess={handleMessageSuccess}
+                      >
+                        <Button size="sm" variant="ghost">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </InboxForm>
+                      
+                      <DeleteConfirmDialog
+                        title="Delete Message"
+                        description={`Are you sure you want to delete this message from ${item.name || 'Unknown sender'}? This action cannot be undone.`}
+                        onConfirm={() => handleDeleteMessage(item.inbox_id)}
+                      >
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </DeleteConfirmDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
