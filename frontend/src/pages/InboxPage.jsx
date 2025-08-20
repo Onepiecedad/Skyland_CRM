@@ -9,7 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Checkbox } from '../components/ui/checkbox';
-import { Inbox, Mail, MailOpen, Clock, Link2 } from 'lucide-react';
+import { InboxForm } from '../components/forms/InboxForm';
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
+import { Inbox, Mail, MailOpen, Clock, Link2, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function InboxPage() {
