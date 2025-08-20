@@ -100,8 +100,16 @@ export function CustomersOverview() {
           <h1 className="text-3xl font-bold">Customers</h1>
           <p className="text-muted-foreground">Manage and view all customer interactions</p>
         </div>
-        <div className="text-sm text-muted-foreground">
-          {customers.length} customers
+        <div className="flex items-center gap-3">
+          <CustomerForm onSuccess={handleCustomerSuccess}>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              New Customer
+            </Button>
+          </CustomerForm>
+          <div className="text-sm text-muted-foreground">
+            {customers.length} customers
+          </div>
         </div>
       </div>
 
