@@ -238,11 +238,32 @@ export function CustomersOverview() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={`/customers/${customer.customer_id}`}>
-                        View Details
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button asChild size="sm" variant="outline">
+                        <Link to={`/customers/${customer.customer_id}`}>
+                          View Details
+                        </Link>
+                      </Button>
+                      
+                      <CustomerForm 
+                        customer={customer} 
+                        onSuccess={handleCustomerSuccess}
+                      >
+                        <Button size="sm" variant="ghost">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </CustomerForm>
+                      
+                      <DeleteConfirmDialog
+                        title="Delete Customer"
+                        description={`Are you sure you want to delete ${customer.name || 'this customer'}? This will also delete all associated leads and unlink inbox messages. This action cannot be undone.`}
+                        onConfirm={() => handleDeleteCustomer(customer.customer_id)}
+                      >
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </DeleteConfirmDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
