@@ -250,6 +250,409 @@ class SkylandCRMTester:
             except Exception as e:
                 self.log_test(f"Inbox - {case['name']}", False, f"Exception: {str(e)}")
 
+    def test_customer_crud(self):
+        """Test Customer CRUD operations (Create, Update, Delete)"""
+        created_customer_id = None
+        
+        # Test CREATE customer
+        try:
+            customer_data = {
+                "name": "Erik Svensson",
+                "email": "erik.svensson@marinservice.se", 
+                "phone": "+46701234567"
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/customers",
+                headers=self.headers,
+                json=customer_data,
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                created_customer_id = data.get('customer_id')
+                required_fields = ['customer_id', 'name', 'email', 'phone', 'created_at', 'updated_at']
+                missing_fields = [field for field in required_fields if field not in data]
+                if missing_fields:
+                    success = False
+                    details += f", Missing fields: {missing_fields}"
+                else:
+                    details += f", Created customer: {data.get('name')}"
+            
+            self.log_test("Customer CRUD - Create", success, details)
+            
+        except Exception as e:
+            self.log_test("Customer CRUD - Create", False, f"Exception: {str(e)}")
+        
+        # Test UPDATE customer (if create was successful)
+        if created_customer_id:
+            try:
+                update_data = {
+                    "name": "Erik Svensson Updated",
+                    "phone": "+46709876543"
+                }
+                
+                response = requests.put(
+                    f"{self.base_url}/customers/{created_customer_id}",
+                    headers=self.headers,
+                    json=update_data,
+                    timeout=10
+                )
+                
+                success = response.status_code == 200
+                details = f"Status: {response.status_code}"
+                
+                if success:
+                    data = response.json()
+                    if data.get('name') == update_data['name'] and data.get('phone') == update_data['phone']:
+                        details += f", Updated customer: {data.get('name')}"
+                    else:
+                        success = False
+                        details += ", Update data not reflected correctly"
+                
+                self.log_test("Customer CRUD - Update", success, details)
+                
+            except Exception as e:
+                self.log_test("Customer CRUD - Update", False, f"Exception: {str(e)}")
+        
+        # Test UPDATE with invalid customer ID
+        try:
+            invalid_id = "00000000-0000-0000-0000-000000000000"
+            update_data = {"name": "Test"}
+            
+            response = requests.put(
+                f"{self.base_url}/customers/{invalid_id}",
+                headers=self.headers,
+                json=update_data,
+                timeout=10
+            )
+            
+            success = response.status_code == 404
+            details = f"Status: {response.status_code} (Expected 404 for invalid ID)"
+            
+            self.log_test("Customer CRUD - Update Invalid ID", success, details)
+            
+        except Exception as e:
+            self.log_test("Customer CRUD - Update Invalid ID", False, f"Exception: {str(e)}")
+        
+        # Test DELETE customer (if create was successful)
+        if created_customer_id:
+            try:
+                response = requests.delete(
+                    f"{self.base_url}/customers/{created_customer_id}",
+                    headers=self.headers,
+                    timeout=10
+                )
+                
+                success = response.status_code == 200
+                details = f"Status: {response.status_code}"
+                
+                if success:
+                    data = response.json()
+                    details += f", Message: {data.get('message', 'No message')}"
+                
+                self.log_test("Customer CRUD - Delete", success, details)
+                
+            except Exception as e:
+                self.log_test("Customer CRUD - Delete", False, f"Exception: {str(e)}")
+        
+        # Test DELETE with invalid customer ID
+        try:
+            invalid_id = "00000000-0000-0000-0000-000000000000"
+            
+            response = requests.delete(
+                f"{self.base_url}/customers/{invalid_id}",
+                headers=self.headers,
+                timeout=10
+            )
+            
+            success = response.status_code == 404
+            details = f"Status: {response.status_code} (Expected 404 for invalid ID)"
+            
+            self.log_test("Customer CRUD - Delete Invalid ID", success, details)
+            
+        except Exception as e:
+            self.log_test("Customer CRUD - Delete Invalid ID", False, f"Exception: {str(e)}")
+
+    def test_lead_crud(self):
+        """Test Lead CRUD operations (Create, Update, Delete)"""
+        created_lead_id = None
+        customer_id = None
+        
+        # First get a valid customer ID for testing
+        try:
+            response = requests.get(f"{self.base_url}/customers/overview", headers=self.headers, params={"limit": "1"}, timeout=10)
+            if response.status_code == 200:
+                customers = response.json()
+                if customers:
+                    customer_id = customers[0]['customer_id']
+        except:
+            pass
+        
+        if not customer_id:
+            self.log_test("Lead CRUD - Setup", False, "Could not get customer ID for testing")
+            return
+        
+        # Test CREATE lead
+        try:
+            lead_data = {
+                "customer_id": customer_id,
+                "intent": "service_request",
+                "status": "new",
+                "channel": "email",
+                "summary": "Båtmotor service behövs",
+                "description": "Kunden behöver service på sin båtmotor innan säsongen",
+                "urgency": "medium",
+                "urgency_score": 5
+            }
+            
+            response = requests.post(
+                f"{self.base_url}/leads",
+                headers=self.headers,
+                json=lead_data,
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                created_lead_id = data.get('lead_id')
+                required_fields = ['lead_id', 'customer_id', 'status', 'created_at', 'updated_at']
+                missing_fields = [field for field in required_fields if field not in data]
+                if missing_fields:
+                    success = False
+                    details += f", Missing fields: {missing_fields}"
+                else:
+                    details += f", Created lead: {data.get('summary')}"
+            
+            self.log_test("Lead CRUD - Create", success, details)
+            
+        except Exception as e:
+            self.log_test("Lead CRUD - Create", False, f"Exception: {str(e)}")
+        
+        # Test UPDATE lead (if create was successful)
+        if created_lead_id:
+            try:
+                update_data = {
+                    "status": "in_progress",
+                    "urgency": "high",
+                    "urgency_score": 8,
+                    "summary": "Båtmotor service - BRÅDSKANDE"
+                }
+                
+                response = requests.put(
+                    f"{self.base_url}/leads/{created_lead_id}",
+                    headers=self.headers,
+                    json=update_data,
+                    timeout=10
+                )
+                
+                success = response.status_code == 200
+                details = f"Status: {response.status_code}"
+                
+                if success:
+                    data = response.json()
+                    if (data.get('status') == update_data['status'] and 
+                        data.get('urgency') == update_data['urgency'] and
+                        data.get('summary') == update_data['summary']):
+                        details += f", Updated lead: {data.get('summary')}"
+                    else:
+                        success = False
+                        details += ", Update data not reflected correctly"
+                
+                self.log_test("Lead CRUD - Update", success, details)
+                
+            except Exception as e:
+                self.log_test("Lead CRUD - Update", False, f"Exception: {str(e)}")
+        
+        # Test UPDATE with invalid lead ID
+        try:
+            invalid_id = "00000000-0000-0000-0000-000000000000"
+            update_data = {"status": "closed"}
+            
+            response = requests.put(
+                f"{self.base_url}/leads/{invalid_id}",
+                headers=self.headers,
+                json=update_data,
+                timeout=10
+            )
+            
+            success = response.status_code == 404
+            details = f"Status: {response.status_code} (Expected 404 for invalid ID)"
+            
+            self.log_test("Lead CRUD - Update Invalid ID", success, details)
+            
+        except Exception as e:
+            self.log_test("Lead CRUD - Update Invalid ID", False, f"Exception: {str(e)}")
+        
+        # Test DELETE lead (if create was successful)
+        if created_lead_id:
+            try:
+                response = requests.delete(
+                    f"{self.base_url}/leads/{created_lead_id}",
+                    headers=self.headers,
+                    timeout=10
+                )
+                
+                success = response.status_code == 200
+                details = f"Status: {response.status_code}"
+                
+                if success:
+                    data = response.json()
+                    details += f", Message: {data.get('message', 'No message')}"
+                
+                self.log_test("Lead CRUD - Delete", success, details)
+                
+            except Exception as e:
+                self.log_test("Lead CRUD - Delete", False, f"Exception: {str(e)}")
+        
+        # Test DELETE with invalid lead ID
+        try:
+            invalid_id = "00000000-0000-0000-0000-000000000000"
+            
+            response = requests.delete(
+                f"{self.base_url}/leads/{invalid_id}",
+                headers=self.headers,
+                timeout=10
+            )
+            
+            success = response.status_code == 404
+            details = f"Status: {response.status_code} (Expected 404 for invalid ID)"
+            
+            self.log_test("Lead CRUD - Delete Invalid ID", success, details)
+            
+        except Exception as e:
+            self.log_test("Lead CRUD - Delete Invalid ID", False, f"Exception: {str(e)}")
+
+    def test_inbox_crud(self):
+        """Test Inbox CRUD operations (Update, Delete)"""
+        inbox_id = None
+        
+        # First get a valid inbox ID for testing
+        try:
+            response = requests.get(f"{self.base_url}/inbox", headers=self.headers, params={"limit": "1"}, timeout=10)
+            if response.status_code == 200:
+                messages = response.json()
+                if messages:
+                    inbox_id = messages[0]['inbox_id']
+        except:
+            pass
+        
+        if not inbox_id:
+            self.log_test("Inbox CRUD - Setup", False, "Could not get inbox ID for testing")
+            return
+        
+        # Test UPDATE inbox message
+        try:
+            update_data = {
+                "status": "processed",
+                "urgency_level": "high",
+                "urgency_score": 8
+            }
+            
+            response = requests.put(
+                f"{self.base_url}/inbox/{inbox_id}",
+                headers=self.headers,
+                json=update_data,
+                timeout=10
+            )
+            
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                if (data.get('status') == update_data['status'] and 
+                    data.get('urgency_level') == update_data['urgency_level']):
+                    details += f", Updated message status: {data.get('status')}"
+                else:
+                    success = False
+                    details += ", Update data not reflected correctly"
+            
+            self.log_test("Inbox CRUD - Update", success, details)
+            
+        except Exception as e:
+            self.log_test("Inbox CRUD - Update", False, f"Exception: {str(e)}")
+        
+        # Test UPDATE with invalid inbox ID
+        try:
+            invalid_id = "00000000-0000-0000-0000-000000000000"
+            update_data = {"status": "processed"}
+            
+            response = requests.put(
+                f"{self.base_url}/inbox/{invalid_id}",
+                headers=self.headers,
+                json=update_data,
+                timeout=10
+            )
+            
+            success = response.status_code == 404
+            details = f"Status: {response.status_code} (Expected 404 for invalid ID)"
+            
+            self.log_test("Inbox CRUD - Update Invalid ID", success, details)
+            
+        except Exception as e:
+            self.log_test("Inbox CRUD - Update Invalid ID", False, f"Exception: {str(e)}")
+        
+        # Test DELETE inbox message (using a different message to avoid affecting the update test)
+        try:
+            # Get another inbox message for deletion test
+            response = requests.get(f"{self.base_url}/inbox", headers=self.headers, params={"limit": "2"}, timeout=10)
+            delete_inbox_id = None
+            
+            if response.status_code == 200:
+                messages = response.json()
+                if len(messages) > 1:
+                    # Use the second message for deletion to avoid conflicts
+                    delete_inbox_id = messages[1]['inbox_id']
+                elif len(messages) == 1:
+                    # If only one message, we'll skip the delete test to preserve data
+                    self.log_test("Inbox CRUD - Delete", True, "Skipped to preserve test data (only one message)")
+                    delete_inbox_id = None
+            
+            if delete_inbox_id:
+                response = requests.delete(
+                    f"{self.base_url}/inbox/{delete_inbox_id}",
+                    headers=self.headers,
+                    timeout=10
+                )
+                
+                success = response.status_code == 200
+                details = f"Status: {response.status_code}"
+                
+                if success:
+                    data = response.json()
+                    details += f", Message: {data.get('message', 'No message')}"
+                
+                self.log_test("Inbox CRUD - Delete", success, details)
+            
+        except Exception as e:
+            self.log_test("Inbox CRUD - Delete", False, f"Exception: {str(e)}")
+        
+        # Test DELETE with invalid inbox ID
+        try:
+            invalid_id = "00000000-0000-0000-0000-000000000000"
+            
+            response = requests.delete(
+                f"{self.base_url}/inbox/{invalid_id}",
+                headers=self.headers,
+                timeout=10
+            )
+            
+            success = response.status_code == 404
+            details = f"Status: {response.status_code} (Expected 404 for invalid ID)"
+            
+            self.log_test("Inbox CRUD - Delete Invalid ID", success, details)
+            
+        except Exception as e:
+            self.log_test("Inbox CRUD - Delete Invalid ID", False, f"Exception: {str(e)}")
+
     def run_all_tests(self):
         """Run all API tests"""
         print("🚀 Starting Skyland CRM API Tests")
