@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Filter, Users, TrendingUp, Clock, CheckCircle } from 'lucide-react';
+import { LeadForm } from '../components/forms/LeadForm';
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
+import { Filter, Users, TrendingUp, Clock, CheckCircle, Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function LeadsPage() {
