@@ -667,7 +667,7 @@ class SkylandCRMTester:
         # Test authentication
         self.test_authentication()
         
-        # Test all endpoints
+        # Test all GET endpoints
         self.test_customers_overview()
         
         success, customer_id = self.test_customer_detail()
@@ -676,6 +676,12 @@ class SkylandCRMTester:
         
         self.test_leads()
         self.test_inbox()
+        
+        # Test CRUD operations
+        print("\n🔧 Testing CRUD Operations...")
+        self.test_customer_crud()
+        self.test_lead_crud()
+        self.test_inbox_crud()
         
         # Print summary
         print("\n" + "=" * 60)
