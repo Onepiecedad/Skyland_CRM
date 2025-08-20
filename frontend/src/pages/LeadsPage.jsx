@@ -48,6 +48,22 @@ export function LeadsPage() {
     fetchLeads();
   }, [statusFilter, intentFilter, urgencyFilter, channelFilter, sortBy]);
 
+  const handleLeadSuccess = (updatedLead) => {
+    // Refresh the leads list
+    fetchLeads();
+  };
+
+  const handleDeleteLead = async (leadId) => {
+    try {
+      await leadsAPI.delete(leadId);
+      toast.success('Lead deleted successfully');
+      fetchLeads(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      throw error; // Re-throw to be caught by DeleteConfirmDialog
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
