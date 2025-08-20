@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Test the Skyland CRM backend API to verify it's working and check what data exists in the database. Specifically test: 1. GET /api/customers/overview - check if there are any customers in the database 2. GET /api/leads - check if there are any leads 3. GET /api/inbox - check if there are any inbox messages 4. Verify the API responses and see if the database has sample data or is empty"
+user_problem_statement: "Test the Skyland CRM backend API to verify it's working and check what data exists in the database. Specifically test: 1. GET /api/customers/overview - check if there are any customers in the database 2. GET /api/leads - check if there are any leads 3. GET /api/inbox - check if there are any inbox messages 4. Verify the API responses and see if the database has sample data or is empty. UPDATED: Test the newly implemented CRUD endpoints for Customer, Lead, and Inbox operations."
 
 backend:
   - task: "API Health Check"
@@ -188,6 +188,102 @@ backend:
         - working: true
           agent: "testing"
           comment: "Inbox endpoint working perfectly. Database contains 10 real inbox messages from marinmekaniker.nu (Swedish marine mechanic website). Messages include real customer data with Swedish names, phone numbers, and service requests. All filtering (unlinked_only, status, type, source, channel), sorting, and pagination work correctly. Returns proper Inbox model with all required fields."
+
+  - task: "POST /api/customers (Create Customer)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Customer creation endpoint working correctly. Successfully creates new customers with proper validation. Returns complete Customer model with generated UUID and timestamps. Handles unique email constraint properly."
+
+  - task: "PUT /api/customers/{id} (Update Customer)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Customer update endpoint working correctly. Successfully updates customer fields dynamically. Properly validates customer existence (404 for invalid IDs) and updates timestamps. Returns updated Customer model."
+
+  - task: "DELETE /api/customers/{id} (Delete Customer)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Customer deletion endpoint working correctly. Properly handles cascading deletes (removes related leads, unlinks inbox messages). Validates customer existence (404 for invalid IDs). Returns success message."
+
+  - task: "POST /api/leads (Create Lead)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Lead creation endpoint working correctly. Successfully creates new leads with proper validation. Requires valid customer_id. Returns complete Lead model with generated UUID and timestamps."
+
+  - task: "PUT /api/leads/{id} (Update Lead)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Lead update endpoint working correctly. Successfully updates lead fields dynamically. Properly validates lead existence (404 for invalid IDs) and respects database constraints (only 'open' status allowed). Returns updated Lead model."
+
+  - task: "DELETE /api/leads/{id} (Delete Lead)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Lead deletion endpoint working correctly. Properly validates lead existence (404 for invalid IDs). Successfully deletes leads without affecting related data. Returns success message."
+
+  - task: "PUT /api/inbox/{id} (Update Inbox Message)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Inbox update endpoint working correctly. Successfully updates inbox message fields dynamically. Properly validates message existence (404 for invalid IDs) and updates timestamps. Returns updated Inbox model."
+
+  - task: "DELETE /api/inbox/{id} (Delete Inbox Message)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Inbox deletion endpoint working correctly. Properly validates message existence (404 for invalid IDs). Note: Production data has referential integrity constraints preventing deletion of messages referenced by leads, which is correct behavior for data consistency."
 
 frontend:
   # No frontend testing performed as per instructions
