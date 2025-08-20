@@ -440,7 +440,7 @@ class SkylandCRMTester:
         if created_lead_id:
             try:
                 update_data = {
-                    "status": "in_progress",
+                    "status": "open",  # Use valid status from database
                     "urgency": "high",
                     "urgency_score": 8,
                     "summary": "Båtmotor service - BRÅDSKANDE"
