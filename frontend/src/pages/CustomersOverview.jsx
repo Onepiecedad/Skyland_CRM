@@ -73,6 +73,22 @@ export function CustomersOverview() {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
+  const handleCustomerSuccess = (updatedCustomer) => {
+    // Refresh the customers list
+    fetchCustomers();
+  };
+
+  const handleDeleteCustomer = async (customerId) => {
+    try {
+      await customersAPI.delete(customerId);
+      toast.success('Customer deleted successfully');
+      fetchCustomers(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      throw error; // Re-throw to be caught by DeleteConfirmDialog
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
