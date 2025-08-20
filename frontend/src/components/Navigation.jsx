@@ -6,6 +6,7 @@ export function Navigation() {
   const location = useLocation();
 
   const navItems = [
+    { path: '/', label: 'Dashboard' },
     { path: '/customers', label: 'Customers' },
     { path: '/leads', label: 'Leads' },
     { path: '/inbox', label: 'Inbox' },
@@ -15,7 +16,7 @@ export function Navigation() {
     <nav className="border-b bg-background">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          <Link to="/customers" className="text-xl font-bold">
+          <Link to="/" className="text-xl font-bold">
             Skyland CRM
           </Link>
           <div className="flex space-x-8">
@@ -25,7 +26,8 @@ export function Navigation() {
                 to={item.path}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary",
-                  location.pathname.startsWith(item.path)
+                  (item.path === '/' && location.pathname === '/') ||
+                  (item.path !== '/' && location.pathname.startsWith(item.path))
                     ? "text-primary"
                     : "text-muted-foreground"
                 )}

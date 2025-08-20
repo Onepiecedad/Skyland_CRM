@@ -1,8 +1,9 @@
 import React from "react";
 import "./App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { Navigation } from "./components/Navigation";
+import { Dashboard } from "./pages/Dashboard";
 import { CustomersOverview } from "./pages/CustomersOverview";
 import { CustomerDetail } from "./pages/CustomerDetail";
 import { LeadsPage } from "./pages/LeadsPage";
@@ -16,7 +17,7 @@ function App() {
           <Navigation />
           <main className="flex-1 container mx-auto px-4 py-6">
             <Routes>
-              <Route path="/" element={<Navigate to="/customers" replace />} />
+              <Route path="/" element={<Dashboard />} />
               <Route path="/customers" element={<CustomersOverview />} />
               <Route path="/customers/:customerId" element={<CustomerDetail />} />
               <Route path="/leads" element={<LeadsPage />} />
