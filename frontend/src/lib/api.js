@@ -41,6 +41,12 @@ export const customersAPI = {
     });
     return api.get(`/customers/${customerId}/thread?${searchParams.toString()}`);
   },
+
+  create: (customerData) => api.post('/customers', customerData),
+  
+  update: (customerId, customerData) => api.put(`/customers/${customerId}`, customerData),
+  
+  delete: (customerId) => api.delete(`/customers/${customerId}`),
 };
 
 export const leadsAPI = {
