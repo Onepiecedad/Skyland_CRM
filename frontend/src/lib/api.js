@@ -77,6 +77,10 @@ export const inboxAPI = {
     });
     return api.get(`/inbox?${searchParams.toString()}`);
   },
+
+  update: (inboxId, inboxData) => api.put(`/inbox/${inboxId}`, inboxData),
+  
+  delete: (inboxId) => api.delete(`/inbox/${inboxId}`),
 };
 
 export default api;
