@@ -78,6 +78,8 @@ export const inboxAPI = {
     return api.get(`/inbox?${searchParams.toString()}`);
   },
 
+  getById: (inboxId) => api.get(`/inbox/${inboxId}`),
+
   update: (inboxId, inboxData) => api.put(`/inbox/${inboxId}`, inboxData),
   
   delete: (inboxId) => api.delete(`/inbox/${inboxId}`),

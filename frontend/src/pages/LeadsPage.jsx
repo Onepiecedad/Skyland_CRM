@@ -2,18 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { leadsAPI } from '../lib/api';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { Skeleton } from '../components/ui/skeleton';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Dialog, DialogContent, DialogClose } from '../components/ui/dialog';
+import { LeadCard } from '../components/LeadCard';
 import { LeadForm } from '../components/forms/LeadForm';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 import { Filter, Users, TrendingUp, Clock, CheckCircle, Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function LeadsPage() {
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalError, setModalError] = useState(null);
+  // Add modalLoading state to fix 'modalLoading is not defined' error
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const openLeadModal = async (leadId) => {
+    setModalOpen(true);
+    setModalLoading(true);
+    setModalError(null);
+    try {
+      const response = await leadsAPI.getAll({ lead_id: leadId });
+      // leadsAPI.getAll returns an array, so find the lead by id
+      const found = response.data.find(l => l.lead_id === leadId);
+      setSelectedLead(found || null);
+      if (!found) setModalError("Lead not found");
+    } catch (err) {
+      setModalError("Failed to load lead");
+      setSelectedLead(null);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+  const closeLeadModal = () => {
+    setModalOpen(false);
+    setSelectedLead(null);
+    setModalError(null);
+  };
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -87,15 +118,38 @@ export function LeadsPage() {
   };
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div>
+            <Skeleton className="h-8 w-40 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full mb-2" />
+          ))}
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-6">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full mb-2" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Leads</h1>
-          <p className="text-muted-foreground">Track and manage all sales opportunities</p>
+          <h1 className="text-3xl font-bold mb-2">Leads</h1>
+          <p className="text-muted-foreground mb-4">Track and manage all sales opportunities</p>
         </div>
         <div className="flex items-center gap-3">
           <LeadForm onSuccess={handleLeadSuccess}>
@@ -226,106 +280,85 @@ export function LeadsPage() {
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Lead</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Intent</TableHead>
-              <TableHead>Urgency</TableHead>
-              <TableHead>Channel</TableHead>
-              <TableHead>Expected Close</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {leads.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                  No leads found matching your criteria
-                </TableCell>
-              </TableRow>
-            ) : (
-              leads.map((lead) => (
-                <TableRow key={lead.lead_id}>
-                  <TableCell>
-                    <div className="max-w-xs">
-                      <div className="font-medium">{lead.summary || 'Untitled Lead'}</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {truncateText(lead.description, 100)}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        ID: {lead.lead_id}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Button asChild variant="link" className="h-auto p-0 text-left">
-                      <Link to={`/customers/${lead.customer_id}`}>
-                        {lead.customer_id}
-                      </Link>
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={lead.status} type="lead" />
-                  </TableCell>
-                  <TableCell>
+      {/* Card List */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {leads.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              No leads found matching your criteria
+            </div>
+          ) : (
+            leads.map((lead) => (
+              <div key={lead.lead_id} className="bg-card rounded-xl shadow p-6 flex flex-col gap-4 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openLeadModal(lead.lead_id)}>
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-bold">{lead.summary || 'Untitled Lead'}</span>
+                  <StatusBadge status={lead.status} type="lead" />
+                </div>
+                <div className="text-sm text-muted-foreground mb-2">
+                  {truncateText(lead.description, 120)}
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <div>
+                    <span className="font-medium">Customer:</span>{' '}
+                    <span className="text-primary">{lead.customer_id}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Intent:</span>{' '}
                     <Badge variant="outline">{lead.intent || 'N/A'}</Badge>
-                  </TableCell>
-                  <TableCell>
+                  </div>
+                  <div>
+                    <span className="font-medium">Urgency:</span>{' '}
                     <StatusBadge status={lead.urgency} type="urgency" />
-                  </TableCell>
-                  <TableCell>
+                  </div>
+                  <div>
+                    <span className="font-medium">Channel:</span>{' '}
                     <Badge variant="outline">{lead.channel || 'N/A'}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {formatDate(lead.expected_close_date)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {formatDate(lead.created_at)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={`/customers/${lead.customer_id}`}>
-                          View Customer
-                        </Link>
-                      </Button>
-                      
-                      <LeadForm 
-                        lead={lead} 
-                        onSuccess={handleLeadSuccess}
-                      >
-                        <Button size="sm" variant="ghost">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </LeadForm>
-                      
-                      <DeleteConfirmDialog
-                        title="Delete Lead"
-                        description={`Are you sure you want to delete this lead "${lead.summary || 'Untitled Lead'}"? This action cannot be undone.`}
-                        onConfirm={() => handleDeleteLead(lead.lead_id)}
-                      >
-                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </DeleteConfirmDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                  </div>
+                  <div>
+                    <span className="font-medium">Expected Close:</span>{' '}
+                    {formatDate(lead.expected_close_date)}
+                  </div>
+                  <div>
+                    <span className="font-medium">Created:</span>{' '}
+                    {formatDate(lead.created_at)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-2" onClick={e => e.stopPropagation()}>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/customers/${lead.customer_id}`}>View Customer</Link>
+                  </Button>
+                  <LeadForm lead={lead} onSuccess={handleLeadSuccess}>
+                    <Button size="sm" variant="ghost">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </LeadForm>
+                  <DeleteConfirmDialog
+                    title="Delete Lead"
+                    description={`Are you sure you want to delete this lead "${lead.summary || 'Untitled Lead'}"? This action cannot be undone.`}
+                    onConfirm={() => handleDeleteLead(lead.lead_id)}
+                  >
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </DeleteConfirmDialog>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <DialogContent>
+          {modalLoading ? (
+            <LoadingSpinner />
+          ) : modalError ? (
+            <div className="text-destructive p-4">{modalError}</div>
+          ) : (
+            <LeadCard lead={selectedLead} />
+          )}
+          <DialogClose asChild>
+            <Button variant="outline" className="mt-4" onClick={closeLeadModal}>Close</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

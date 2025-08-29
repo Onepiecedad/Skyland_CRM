@@ -5,9 +5,9 @@ import { Toaster } from "sonner";
 import { Navigation } from "./components/Navigation";
 import { Dashboard } from "./pages/Dashboard";
 import { CustomersOverview } from "./pages/CustomersOverview";
-import { CustomerDetail } from "./pages/CustomerDetail";
 import { LeadsPage } from "./pages/LeadsPage";
 import { InboxPage } from "./pages/InboxPage";
+import { CustomerDetail } from "./pages/CustomerDetail";
 
 function App() {
   return (

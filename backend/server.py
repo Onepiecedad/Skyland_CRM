@@ -4,12 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
-from databases import Database
 import os
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
 import uuid
+from databases import Database
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
@@ -24,6 +24,15 @@ API_TOKEN = os.environ['API_TOKEN']
 
 # Create the main app
 app = FastAPI(title="Skyland CRM API", version="1.0.0")
+
+# Enable CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -116,6 +125,23 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
     return credentials
 
 # API Endpoints
+@api_router.get("/inbox/{inbox_id}", response_model=Inbox)
+async def get_inbox_by_id(
+    inbox_id: uuid.UUID,
+    _: str = Depends(verify_token)
+):
+    query = """
+    SELECT inbox_id, source, channel, type, name, email, phone, service_type,
+           message_raw, ai_json, dedupe_key, received_at, status, urgency_score,
+           urgency_level, customer_id, created_at, updated_at
+    FROM public.inbox
+    WHERE inbox_id = :inbox_id
+    LIMIT 1
+    """
+    row = await database.fetch_one(query=query, values={"inbox_id": inbox_id})
+    if not row:
+        raise HTTPException(status_code=404, detail="Inbox message not found")
+    return Inbox(**dict(row))
 
 @api_router.get("/")
 async def root():
