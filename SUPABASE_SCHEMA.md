@@ -2,7 +2,7 @@
 
 > **Datum:** 2026-01-13  
 > **Projekt:** Skyland CRM för marinmekaniker.nu  
-> **Status:** Förslag för granskning
+> **Status:** Implementerad
 
 ---
 
