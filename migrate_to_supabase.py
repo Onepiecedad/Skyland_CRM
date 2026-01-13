@@ -2,6 +2,8 @@
 """
 Migration script: Railway PostgreSQL → Supabase
 Migrates customers, leads, and inbox data from the old schema to the new schema.
+
+UPDATED: 2026-01-13 - Only migrates LEADS (customers & inbox already done)
 """
 
 import os
@@ -30,35 +32,6 @@ def get_railway_data(endpoint: str) -> list:
     response = requests.get(f"{RAILWAY_API}/api/{endpoint}", headers=headers)
     response.raise_for_status()
     return response.json()
-
-def migrate_customers(supabase: Client, customers: list) -> dict:
-    """Migrate customers and return mapping of old_id -> new_id"""
-    print(f"\n📦 Migrating {len(customers)} customers...")
-    id_mapping = {}
-    
-    for c in customers:
-        # Transform to new schema
-        new_customer = {
-            "name": c.get("name") or "Unknown",
-            "email": c.get("email"),
-            "phone": c.get("phone"),
-            "status": "active",
-            "source": "website",
-            "notes": None,
-            "tags": []
-        }
-        
-        try:
-            result = supabase.table("customers").insert(new_customer).execute()
-            if result.data:
-                new_id = result.data[0]["id"]
-                old_id = c.get("customer_id")
-                id_mapping[str(old_id)] = new_id
-                print(f"  ✓ {new_customer['name']}")
-        except Exception as e:
-            print(f"  ✗ Error migrating {new_customer['name']}: {e}")
-    
-    return id_mapping
 
 def migrate_leads(supabase: Client, leads: list, customer_mapping: dict) -> dict:
     """Migrate leads and return mapping of old_id -> new_id"""
@@ -124,53 +97,6 @@ def migrate_leads(supabase: Client, leads: list, customer_mapping: dict) -> dict
     
     return id_mapping
 
-def migrate_inbox(supabase: Client, inbox_items: list, customer_mapping: dict, lead_mapping: dict):
-    """Migrate inbox messages"""
-    print(f"\n📦 Migrating {len(inbox_items)} inbox messages...")
-    
-    for item in inbox_items:
-        # Get linked IDs
-        old_customer_id = str(item.get("customer_id")) if item.get("customer_id") else None
-        new_customer_id = customer_mapping.get(old_customer_id) if old_customer_id else None
-        
-        # Transform to new schema
-        new_inbox = {
-            "source": item.get("source", "website_form") or "website_form",
-            "raw_payload": json.dumps(item),
-            "name": item.get("name"),
-            "email": item.get("email"),
-            "phone": item.get("phone"),
-            "message": item.get("message_raw"),
-            "status": "processed" if item.get("status") == "processed" else "pending"
-        }
-        
-        # Validate source
-        valid_sources = ['website_form', 'email', 'telegram', 'phone', 'other']
-        if new_inbox["source"] not in valid_sources:
-            new_inbox["source"] = "website_form"
-        
-        try:
-            result = supabase.table("inbox").insert(new_inbox).execute()
-            if result.data:
-                print(f"  ✓ Inbox: {new_inbox['name'] or 'Unknown'}")
-                
-                # Also create a message record for communication history
-                if new_customer_id:
-                    message = {
-                        "customer_id": new_customer_id,
-                        "direction": "inbound",
-                        "channel": new_inbox["source"].replace("_form", ""),
-                        "subject": item.get("service_type"),
-                        "content": item.get("message_raw"),
-                        "from_address": item.get("email") or item.get("phone"),
-                        "status": "read"
-                    }
-                    if message["channel"] not in ['email', 'telegram', 'sms', 'phone', 'website']:
-                        message["channel"] = "website"
-                    supabase.table("messages").insert(message).execute()
-        except Exception as e:
-            print(f"  ✗ Error migrating inbox: {e}")
-
 def log_activity(supabase: Client, action: str, description: str):
     """Log migration activity"""
     try:
@@ -185,7 +111,7 @@ def log_activity(supabase: Client, action: str, description: str):
 
 def main():
     print("=" * 60)
-    print("SKYLAND CRM - DATA MIGRATION")
+    print("SKYLAND CRM - DATA MIGRATION (LEADS ONLY)")
     print("Railway PostgreSQL → Supabase")
     print("=" * 60)
     
@@ -208,12 +134,10 @@ def main():
         return
     
     # Fetch data from Railway
-    print("\n📥 Fetching data from Railway...")
+    print("\n📥 Fetching leads from Railway...")
     try:
-        customers = get_railway_data("customers/overview")
         leads = get_railway_data("leads")
-        inbox = get_railway_data("inbox")
-        print(f"   ✓ Found {len(customers)} customers, {len(leads)} leads, {len(inbox)} inbox items")
+        print(f"   ✓ Found {len(leads)} leads")
     except Exception as e:
         print(f"   ✗ Error fetching data: {e}")
         print("   Make sure the backend is running on http://localhost:8000")
@@ -221,24 +145,26 @@ def main():
     
     # Log migration start
     log_activity(supabase, "migration_started", 
-                 f"Starting migration from Railway: {len(customers)} customers, {len(leads)} leads, {len(inbox)} inbox")
+                 f"Starting leads migration from Railway: {len(leads)} leads")
     
-    # Migrate in order (respecting foreign key relationships)
-    customer_mapping = migrate_customers(supabase, customers)
+    # Skip customers - already migrated
+    # We pass empty mapping since leads might not have customer_id links that matter
+    customer_mapping = {}
+    
+    # Migrate leads only
     lead_mapping = migrate_leads(supabase, leads, customer_mapping)
-    migrate_inbox(supabase, inbox, customer_mapping, lead_mapping)
+    
+    # Skip inbox - already migrated
     
     # Log migration complete
     log_activity(supabase, "migration_completed",
-                 f"Migration complete: {len(customer_mapping)} customers, {len(lead_mapping)} leads migrated")
+                 f"Leads migration complete: {len(lead_mapping)} leads migrated")
     
     # Summary
     print("\n" + "=" * 60)
-    print("✅ MIGRATION COMPLETE")
+    print("✅ LEADS MIGRATION COMPLETE")
     print("=" * 60)
-    print(f"   Customers migrated: {len(customer_mapping)}")
     print(f"   Leads migrated: {len(lead_mapping)}")
-    print(f"   Inbox messages migrated: {len(inbox)}")
     print("\n🔗 View your data at:")
     print(f"   {SUPABASE_URL.replace('.supabase.co', '.supabase.co/project/aclcpanlrhnyszivvmdy/editor')}")
 

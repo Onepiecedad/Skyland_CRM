@@ -1,33 +1,3 @@
-  function truncateText(text, maxLength = 50) {
-    if (!text) return '';
-    return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
-  }
-  function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  }
-  function getUrgencyBadge(urgency, urgency_score) {
-    if (urgency === 'high' || urgency_score > 7) {
-      return <span className="bg-red-500 text-white px-2 py-1 rounded text-xs">Urgent</span>;
-    }
-    if (urgency === 'medium' || urgency_score > 4) {
-      return <span className="bg-yellow-500 text-white px-2 py-1 rounded text-xs">Medium</span>;
-    }
-    return null;
-  }
-  function getLeadStatusColor(status) {
-    switch (status) {
-      case 'open':
-        return 'bg-green-500';
-      case 'closed':
-        return 'bg-gray-400';
-      case 'urgent':
-        return 'bg-red-500';
-      default:
-        return 'bg-blue-500';
-    }
-  }
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { customersAPI, leadsAPI, inboxAPI } from '../lib/api';
@@ -40,12 +10,12 @@ import { InboxMessageCard } from '../components/InboxMessageCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
-import { 
-  Users, 
-  Target, 
-  Inbox, 
-  TrendingUp, 
-  Mail, 
+import {
+  Users,
+  Target,
+  Inbox,
+  TrendingUp,
+  Mail,
   AlertCircle,
   Plus,
   ArrowRight,
@@ -53,6 +23,40 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+function truncateText(text, maxLength = 50) {
+  if (!text) return '';
+  return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+function getUrgencyBadge(urgency, urgency_score) {
+  if (urgency === 'high' || urgency_score > 7) {
+    return <span className="bg-red-500 text-white px-2 py-1 rounded text-xs">Urgent</span>;
+  }
+  if (urgency === 'medium' || urgency_score > 4) {
+    return <span className="bg-yellow-500 text-white px-2 py-1 rounded text-xs">Medium</span>;
+  }
+  return null;
+}
+
+function getLeadStatusColor(status) {
+  switch (status) {
+    case 'open':
+      return 'bg-green-500';
+    case 'closed':
+      return 'bg-gray-400';
+    case 'urgent':
+      return 'bg-red-500';
+    default:
+      return 'bg-blue-500';
+  }
+}
 
 export function Dashboard() {
   const [dashboardData, setDashboardData] = useState({
@@ -222,8 +226,8 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-xl sm:text-2xl font-bold">
-              {dashboardData.leads.total > 0 
-                ? Math.round((dashboardData.leads.open / dashboardData.leads.total) * 100) 
+              {dashboardData.leads.total > 0
+                ? Math.round((dashboardData.leads.open / dashboardData.leads.total) * 100)
                 : 0}%
             </div>
             <p className="text-xs text-muted-foreground">
