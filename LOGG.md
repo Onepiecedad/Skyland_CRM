@@ -1,8 +1,12 @@
 # Utvecklingslogg
 
-## 2026-01-14 - Fas 2: Auth & Dashboard Vyer
+## 2026-01-14 - Fas 2: Auth, Dashboard & Deployment
 
 ### Implementerat
+
+* **Deployment:**
+  * Byggt och deployat frontend till Netlify.
+  * Verifierat att applikationen fungerar live på `marinmekaniker.netlify.app`.
 
 * **Autentisering:**
   * Satt upp `Login.jsx` med Supabase Email/Password auth.
@@ -31,5 +35,6 @@
 
 ### Status
 
-* Frontend är nu kopplad "live" mot Supabase (Read-only förutom auth).
-* Applikationen är redo för Fas 2b (Editering/Skapande av data).
+* Applikationen körs live i produktion.
+* Frontend är kopplad mot Supabase (Read-only förutom auth).
+* Redo för Fas 2b: Editering och skapande av data (Actions).
