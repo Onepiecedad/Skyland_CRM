@@ -108,28 +108,40 @@ export const Today = () => {
                             {leads.length === 0 ? (
                                 <p className="text-muted-foreground">Inget att göra idag 🎉</p>
                             ) : (
-                                leads.map((lead) => (
-                                    <div key={lead.id} className="flex justify-between items-start border-b last:border-0 pb-3 last:pb-0">
-                                        <div className="space-y-1">
-                                            {lead.customer_id ? (
-                                                <Link to={`/kund/${lead.customer_id}`} className="font-medium hover:underline">
+                                leads.map((lead) => {
+                                    const InnerContent = () => (
+                                        <>
+                                            <div className="space-y-1">
+                                                <div className="font-medium decoration-primary group-hover:underline">
                                                     {lead.name}
-                                                </Link>
-                                            ) : (
-                                                <span className="font-medium">{lead.name}</span>
-                                            )}
-                                            <p className="text-sm text-muted-foreground">
-                                                {lead.ai_summary || lead.subject || 'Inget ämne'}
-                                            </p>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {lead.ai_summary || lead.subject || 'Inget ämne'}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className="text-xs text-muted-foreground">
+                                                    {lead.created_at ? format(new Date(lead.created_at), 'd MMM', { locale: sv }) : ''}
+                                                </span>
+                                                {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
+                                            </div>
+                                        </>
+                                    );
+
+                                    return lead.customer_id ? (
+                                        <Link
+                                            key={lead.id}
+                                            to={`/kund/${lead.customer_id}`}
+                                            className="group flex justify-between items-start border-b last:border-0 pb-3 last:pb-0 pt-2 hover:bg-muted/50 transition-colors -mx-4 px-4"
+                                        >
+                                            <InnerContent />
+                                        </Link>
+                                    ) : (
+                                        <div key={lead.id} className="flex justify-between items-start border-b last:border-0 pb-3 last:pb-0 pt-2 -mx-4 px-4">
+                                            <InnerContent />
                                         </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            <span className="text-xs text-muted-foreground">
-                                                {lead.created_at ? format(new Date(lead.created_at), 'd MMM', { locale: sv }) : ''}
-                                            </span>
-                                            {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                             {leads.length >= 10 && (
                                 <p className="text-sm text-center text-muted-foreground pt-2">Visa alla (kommer snart)</p>
