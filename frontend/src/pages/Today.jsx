@@ -6,70 +6,104 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
 import { sv } from 'date-fns/locale';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export const Today = () => {
     const [leads, setLeads] = useState([]);
     const [jobs, setJobs] = useState([]);
     const [stats, setStats] = useState({ leadsCount: 0, customersCount: 0 });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const fetchDashboardData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            // 1. Fetch Leads (Att svara på)
+            const { data: leadsData, error: leadsError } = await supabase
+                .from('leads')
+                .select('*')
+                .neq('ai_category', 'SPAM')
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (leadsError) throw leadsError;
+            setLeads(leadsData || []);
+
+            // 2. Fetch Upcoming Jobs (next 7 days)
+            const today = startOfDay(new Date());
+            const nextWeek = endOfDay(addDays(today, 7));
+
+            const { data: jobsData, error: jobsError } = await supabase
+                .from('jobs')
+                .select('*')
+                .in('status', ['pending', 'scheduled'])
+                .gte('scheduled_date', format(today, 'yyyy-MM-dd'))
+                .lte('scheduled_date', format(nextWeek, 'yyyy-MM-dd'))
+                .order('scheduled_date', { ascending: true });
+
+            if (jobsError) throw jobsError;
+            setJobs(jobsData || []);
+
+            // 3. Stats
+            const { count: leadsCount, error: leadsCountError } = await supabase
+                .from('leads')
+                .select('*', { count: 'exact', head: true })
+                .neq('ai_category', 'SPAM');
+
+            if (leadsCountError) throw leadsCountError;
+
+            const { count: customersCount, error: customersCountError } = await supabase
+                .from('customers')
+                .select('*', { count: 'exact', head: true });
+
+            if (customersCountError) throw customersCountError;
+
+            setStats({
+                leadsCount: leadsCount || 0,
+                customersCount: customersCount || 0
+            });
+        } catch (err) {
+            console.error('Error fetching dashboard data:', err);
+            setError('Kunde inte ladda data. Försök igen.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            setLoading(true);
-            try {
-                // 1. Fetch Leads (Att svara på)
-                const { data: leadsData } = await supabase
-                    .from('leads')
-                    .select('*')
-                    .neq('ai_category', 'SPAM')
-                    .order('created_at', { ascending: false })
-                    .limit(10);
-
-                setLeads(leadsData || []);
-
-                // 2. Fetch Upcoming Jobs (next 7 days)
-                const today = startOfDay(new Date());
-                const nextWeek = endOfDay(addDays(today, 7));
-
-                const { data: jobsData } = await supabase
-                    .from('jobs')
-                    .select('*')
-                    .in('status', ['pending', 'scheduled'])
-                    .gte('scheduled_date', format(today, 'yyyy-MM-dd'))
-                    .lte('scheduled_date', format(nextWeek, 'yyyy-MM-dd'))
-                    .order('scheduled_date', { ascending: true });
-
-                setJobs(jobsData || []);
-
-                // 3. Stats
-                const { count: leadsCount } = await supabase
-                    .from('leads')
-                    .select('*', { count: 'exact', head: true })
-                    .neq('ai_category', 'SPAM');
-
-                const { count: customersCount } = await supabase
-                    .from('customers')
-                    .select('*', { count: 'exact', head: true });
-
-                setStats({
-                    leadsCount: leadsCount || 0,
-                    customersCount: customersCount || 0
-                });
-
-            } catch (error) {
-                console.error('Error fetching dashboard data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchDashboardData();
     }, []);
 
     if (loading) return (
         <div className="min-h-screen bg-background flex flex-col">
             <Header />
-            <div className="p-8">Laddar...</div>
+            <div className="flex-1 flex items-center justify-center">
+                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+        </div>
+    );
+
+    if (error) return (
+        <div className="min-h-screen bg-background flex flex-col">
+            <Header />
+            <div className="flex-1 flex items-center justify-center">
+                <Card className="max-w-md">
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col items-center gap-4 text-center">
+                            <AlertCircle className="h-10 w-10 text-destructive" />
+                            <p className="text-muted-foreground">{error}</p>
+                            <button
+                                onClick={fetchDashboardData}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Försök igen
+                            </button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 
@@ -77,7 +111,6 @@ export const Today = () => {
         <div className="min-h-screen bg-background flex flex-col">
             <Header />
             <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
-
                 {/* Snabbstatistik */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card>
@@ -90,7 +123,7 @@ export const Today = () => {
                     </Card>
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Antal Kunder</CardTitle>
+                            <CardTitle className="text-sm font-medium text-muted-foreground">Antal kunder</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">{stats.customersCount}</div>
@@ -106,14 +139,14 @@ export const Today = () => {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {leads.length === 0 ? (
-                                <p className="text-muted-foreground">Inget att göra idag 🎉</p>
+                                <p className="text-muted-foreground text-center py-4">Inget att göra idag 🎉</p>
                             ) : (
                                 leads.map((lead) => {
                                     const InnerContent = () => (
                                         <>
                                             <div className="space-y-1">
                                                 <div className="font-medium decoration-primary group-hover:underline">
-                                                    {lead.name}
+                                                    {lead.name || 'Okänd'}
                                                 </div>
                                                 <p className="text-sm text-muted-foreground">
                                                     {lead.ai_summary || lead.subject || 'Inget ämne'}
@@ -156,7 +189,7 @@ export const Today = () => {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {jobs.length === 0 ? (
-                                <p className="text-muted-foreground">Inga bokade jobb</p>
+                                <p className="text-muted-foreground text-center py-4">Inga bokade jobb</p>
                             ) : (
                                 jobs.map((job) => (
                                     <div key={job.id} className="flex justify-between items-start border-b last:border-0 pb-3 last:pb-0">
@@ -164,14 +197,14 @@ export const Today = () => {
                                             <div className="font-medium">
                                                 {job.customer_id ? (
                                                     <Link to={`/kund/${job.customer_id}`} className="hover:underline">
-                                                        {job.title}
+                                                        {job.title || 'Utan titel'}
                                                     </Link>
                                                 ) : (
-                                                    job.title
+                                                    job.title || 'Utan titel'
                                                 )}
                                             </div>
                                             <p className="text-sm text-muted-foreground truncate w-64">
-                                                {job.description}
+                                                {job.description || ''}
                                             </p>
                                         </div>
                                         <div className="text-right">
