@@ -30,9 +30,10 @@ export const Timeline = ({ customerId }) => {
 
             try {
                 // 1. Fetch emails from messages table
+                // Using select('*') because column names may vary between schema versions
                 const { data: emailsData, error: emailsError } = await supabase
                     .from('messages')
-                    .select('id, subject, content, from_address, created_at, direction, channel')
+                    .select('*')
                     .eq('customer_id', customerId)
                     .eq('channel', 'email')
                     .order('created_at', { ascending: false });
@@ -64,17 +65,23 @@ export const Timeline = ({ customerId }) => {
                 }
 
                 // 4. Transform to unified shape
-                const emailItems = (emailsData || []).map(email => ({
-                    id: email.id,
-                    type: 'email',
-                    title: email.subject || 'Inget ämne',
-                    from_label: email.from_address || 'Okänd avsändare',
-                    preview: email.content
-                        ? (email.content.length > 160 ? email.content.substring(0, 160) + '...' : email.content)
-                        : '',
-                    ts: email.created_at || null,
-                    direction: email.direction,
-                }));
+                // Handle varying column names for email content: content, body_preview, or body
+                const emailItems = (emailsData || []).map(email => {
+                    const emailContent = email.content || email.body_preview || email.body || '';
+                    const fromLabel = email.from_name || email.from_address || email.from_email || 'Okänd avsändare';
+
+                    return {
+                        id: email.id,
+                        type: 'email',
+                        title: email.subject || 'Inget ämne',
+                        from_label: fromLabel,
+                        preview: emailContent
+                            ? (emailContent.length > 160 ? emailContent.substring(0, 160) + '...' : emailContent)
+                            : '',
+                        ts: email.received_at || email.created_at || null,
+                        direction: email.direction,
+                    };
+                });
 
                 const formItems = (formsData || []).map(form => ({
                     id: form.id,

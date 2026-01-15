@@ -27,7 +27,7 @@
   * ✅ `frontend/src/pages/CustomerDetail.jsx` finns (241 rader)
   * ✅ `frontend/src/lib/supabase.js` finns och exporterar klient
 
-### Status
+### Status (2026-01-15)
 
 * 🟢 **Systemet är stabilt och redo för vidareutveckling**
 * Alla kärnfunktioner verifierade att fungera korrekt
@@ -48,6 +48,24 @@
 * **Filer ändrade:**
   * `frontend/src/components/Timeline.jsx` - Ny implementation
   * `frontend/src/pages/CustomerDetail.jsx` - Skickar `customerId` prop, tog bort gammal hämtningslogik
+
+### Buggfixar: n8n Email IMAP Ingest
+
+* **Problem 1: E-post inte länkad till kunder**
+  * Orsak: `Prepare Insert`-noden i n8n kontrollerade `Array.isArray(customerResult)` men Supabase-noden returnerar objekt, inte arrayer
+  * Fix: Ändrade till `const customerId = customerResult?.id || null;`
+  * Resultat: Inkommande mejl länkas nu korrekt till befintliga kunder
+
+* **Problem 2: Svenska tecken (Å Ä Ö) visades som mojibake**
+  * Orsak: UTF-8 text tolkades som Latin-1 (t.ex. "Ã¥" istället för "å")
+  * Fix: La till `fixMojibake`-funktion i `Process Email Data`-noden som konverterar:
+    * `Ã¥` → `å`, `Ã¤` → `ä`, `Ã¶` → `ö`
+    * `Ã…` → `Å`, `Ã„` → `Ä`, `Ã–` → `Ö`
+  * Körde SQL-fix för befintliga meddelanden i databasen
+  * Resultat: Svenska tecken visas nu korrekt i tidslinjen
+
+* **Filer ändrade:**
+  * `Email_IMAP_Ingest.json` - Uppdaterad n8n workflow med båda fixarna
 
 ---
 
@@ -84,7 +102,7 @@
 * Städat bort oanvänd kod i `CustomerDetail` och `CustomerList`.
 * Lagat inloggningsproblem relaterat till `email_confirmed_at`.
 
-### Status
+### Status (2026-01-14)
 
 * Applikationen körs live i produktion.
 * Frontend är kopplad mot Supabase (Read-only förutom auth).
