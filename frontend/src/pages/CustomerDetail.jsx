@@ -14,7 +14,7 @@ export const CustomerDetail = () => {
   const [customer, setCustomer] = useState(null);
   const [boats, setBoats] = useState([]);
   const [leads, setLeads] = useState([]);
-  const [timelineItems, setTimelineItems] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -59,20 +59,7 @@ export const CustomerDetail = () => {
       if (leadsError) throw leadsError;
       setLeads(leadsData || []);
 
-      // Fetch timeline (inbox items connected to these leads)
-      if (leadsData && leadsData.length > 0) {
-        const leadIds = leadsData.map((l) => l.id);
-        const { data: inboxData, error: inboxError } = await supabase
-          .from('inbox')
-          .select('*')
-          .in('lead_id', leadIds)
-          .order('created_at', { ascending: false });
 
-        if (inboxError) throw inboxError;
-        setTimelineItems(inboxData || []);
-      } else {
-        setTimelineItems([]);
-      }
     } catch (err) {
       console.error('Error fetching customer details:', err);
       setError('Kunde inte ladda kunddata. Försök igen.');
@@ -235,7 +222,7 @@ export const CustomerDetail = () => {
       </div>
 
       {/* Tidslinje */}
-      <Timeline items={timelineItems} />
+      <Timeline customerId={id} />
     </div>
   );
 };
