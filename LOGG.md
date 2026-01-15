@@ -1,5 +1,51 @@
 # Utvecklingslogg
 
+## 2026-01-15 (em) - Buggfix: Felaktig datalänkning i inbox
+
+### Problem identifierat
+
+* **Symptom:** Anna Svenssons formulärposter visades på Erik Testssons tidslinje
+* **Rotorsak:** Inbox-posterna hade fel `lead_id` - de pekade på Eriks lead istället för Annas
+* **Ytterligare problem:** Anna Svensson saknade helt ett eget lead-record i `leads`-tabellen
+
+### Åtgärder utförda (via Supabase SQL Editor)
+
+1. **Skapade lead för Anna Svensson:**
+
+   ```sql
+   INSERT INTO leads (name, email, customer_id, status, source, created_at)
+   VALUES ('Anna Svensson', 'anna.svensson@email.se', 
+           'b2c92835-019f-4c46-b22d-29dd32566395', 'new', 'website_form', ...)
+   -- Nytt lead ID: c090e716-0888-4606-a900-620415dbab56
+   ```
+
+2. **Uppdaterade inbox-poster:**
+
+   ```sql
+   UPDATE inbox 
+   SET lead_id = 'c090e716-0888-4606-a900-620415dbab56'
+   WHERE id IN ('9e311753-1f3c-4de1-9c87-0c745b08970e', 
+                '80f8695d-f939-4555-ba7c-ab27eb9b1c94');
+   ```
+
+3. **Verifiering:**
+   * ✅ Båda inbox-posterna pekar nu på rätt lead (`c090e716...`)
+   * ✅ Lead är kopplat till rätt customer (`b2c92835...` = Anna Svensson)
+   * ✅ Tidslinjen visar nu Anna Svensson som kund istället för Erik Testsson
+
+### Förbättringsförslag
+
+* Implementera validering i n8n-workflowet för att säkerställa att `lead_id` matchar avsändarens email
+* Lägg till database constraint eller trigger för att förhindra felaktig länkning
+* Skapa admin-vy för att enkelt inspektera och korrigera datalänkningar
+
+### Status (2026-01-15 16:11)
+
+* 🟢 **Bugg löst** - Anna Svenssons formulär visas nu på rätt kundkort
+* Systemet är åter stabilt
+
+---
+
 ## 2026-01-15 - Systemverifiering innan vidareutveckling
 
 ### Kontrollerad
