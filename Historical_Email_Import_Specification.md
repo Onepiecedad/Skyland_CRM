@@ -106,6 +106,25 @@ function extractName(str) {
   return match ? match[1].trim() : '';
 }
 
+// Fix UTF-8 encoding issues from IMAP (double-encoded as latin-1)
+function fixEncoding(str) {
+  if (!str) return '';
+  return str
+    .replace(/Ã¤/g, 'ä')
+    .replace(/Ã¶/g, 'ö')
+    .replace(/Ã¥/g, 'å')
+    .replace(/Ã„/g, 'Ä')
+    .replace(/Ã–/g, 'Ö')
+    .replace(/Ã…/g, 'Å')
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã /g, 'à')
+    .replace(/Ã¼/g, 'ü')
+    .replace(/â€"/g, '–')
+    .replace(/â€™/g, "'")
+    .replace(/â€œ/g, '"')
+    .replace(/â€/g, '"');
+}
+
 const seen = new Set();
 const results = [];
 
@@ -142,16 +161,18 @@ for (const item of $input.all()) {
   
   if (!externalEmail) continue;
   
-  const body = item.json.textPlain || item.json.text || '';
+  const rawBody = item.json.textPlain || item.json.text || '';
+  const body = fixEncoding(rawBody);
+  const subject = fixEncoding(item.json.subject || '(Inget ämne)');
   
   results.push({
     json: {
       direction,
       externalEmail,
-      externalName: externalName.trim(),
+      externalName: fixEncoding(externalName.trim()),
       fromEmail,
       toEmail,
-      subject: (item.json.subject || '(Inget ämne)').trim(),
+      subject: subject.trim(),
       bodyPreview: body.substring(0, 500).trim(),
       bodyFull: body,
       receivedAt: item.json.date || null,

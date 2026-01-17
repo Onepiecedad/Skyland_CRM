@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Mail, FileText, RefreshCw } from 'lucide-react';
+import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 /**
@@ -67,7 +67,8 @@ export const Timeline = ({ customerId }) => {
                 // 4. Transform to unified shape
                 // Handle varying column names for email content: content, body_preview, or body
                 const emailItems = (emailsData || []).map(email => {
-                    const emailContent = email.content || email.body_preview || email.body || '';
+                    const fullContent = email.body_full || email.content || email.body_preview || email.body || '';
+                    const previewContent = email.body_preview || email.content || email.body || '';
                     const fromLabel = email.from_name || email.from_address || email.from_email || 'Okänd avsändare';
 
                     return {
@@ -75,9 +76,11 @@ export const Timeline = ({ customerId }) => {
                         type: 'email',
                         title: email.subject || 'Inget ämne',
                         from_label: fromLabel,
-                        preview: emailContent
-                            ? (emailContent.length > 160 ? emailContent.substring(0, 160) + '...' : emailContent)
-                            : '',
+                        preview: previewContent.length > 300
+                            ? previewContent.substring(0, 300) + '...'
+                            : previewContent,
+                        fullContent: fullContent,
+                        hasMore: fullContent.length > 300,
                         ts: email.received_at || email.created_at || null,
                         direction: email.direction,
                     };
@@ -174,54 +177,82 @@ export const Timeline = ({ customerId }) => {
             </CardHeader>
             <CardContent>
                 <div className="space-y-6 border-l-2 border-muted pl-6 relative">
-                    {items.map((item) => {
-                        const isEmail = item.type === 'email';
-                        const Icon = isEmail ? Mail : FileText;
-                        const sourceLabel = isEmail ? 'Mejl' : 'Formulär';
-
-                        // Format timestamp with edge case handling
-                        let formattedDate = 'Okänt datum';
-                        if (item.ts) {
-                            try {
-                                formattedDate = format(new Date(item.ts), 'd MMM yyyy HH:mm', { locale: sv });
-                            } catch (e) {
-                                console.warn('Invalid timestamp:', item.ts);
-                            }
-                        }
-
-                        return (
-                            <div key={item.id} className="relative">
-                                <span className="absolute -left-[31px] top-1 bg-background border-2 border-primary rounded-full w-4 h-4" />
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-sm text-muted-foreground">
-                                        {formattedDate}
-                                    </span>
-                                    <div className="font-semibold flex items-center gap-2">
-                                        <Icon className="h-4 w-4 text-muted-foreground" />
-                                        <span>{sourceLabel}</span>
-                                        {isEmail && item.direction === 'outbound' && (
-                                            <span className="text-xs text-muted-foreground">(skickat)</span>
-                                        )}
-                                    </div>
-                                    {item.title && item.type === 'email' && (
-                                        <div className="text-sm font-medium text-foreground">
-                                            {item.title}
-                                        </div>
-                                    )}
-                                    <div className="text-sm text-foreground">
-                                        {item.from_label}
-                                    </div>
-                                    {item.preview && (
-                                        <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
-                                            {item.preview}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {items.map((item) => (
+                        <TimelineItem key={item.id} item={item} />
+                    ))}
                 </div>
             </CardContent>
         </Card>
+    );
+};
+
+// Separate component for each timeline item to handle expand state
+const TimelineItem = ({ item }) => {
+    const [expanded, setExpanded] = useState(false);
+
+    const isEmail = item.type === 'email';
+    const Icon = isEmail ? Mail : FileText;
+    const sourceLabel = isEmail ? 'Mejl' : 'Formulär';
+
+    // Format timestamp with edge case handling
+    let formattedDate = 'Okänt datum';
+    if (item.ts) {
+        try {
+            formattedDate = format(new Date(item.ts), 'd MMM yyyy HH:mm', { locale: sv });
+        } catch (e) {
+            console.warn('Invalid timestamp:', item.ts);
+        }
+    }
+
+    const displayContent = expanded ? item.fullContent : item.preview;
+    const canExpand = item.hasMore && item.fullContent;
+
+    return (
+        <div className="relative">
+            <span className="absolute -left-[31px] top-1 bg-background border-2 border-primary rounded-full w-4 h-4" />
+            <div className="flex flex-col gap-1">
+                <span className="text-sm text-muted-foreground">
+                    {formattedDate}
+                </span>
+                <div className="font-semibold flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span>{sourceLabel}</span>
+                    {isEmail && item.direction === 'outbound' && (
+                        <span className="text-xs text-muted-foreground">(skickat)</span>
+                    )}
+                </div>
+                {item.title && item.type === 'email' && (
+                    <div className="text-sm font-medium text-foreground">
+                        {item.title}
+                    </div>
+                )}
+                <div className="text-sm text-foreground">
+                    {item.from_label}
+                </div>
+                {displayContent && (
+                    <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
+                        {displayContent}
+                    </p>
+                )}
+                {canExpand && (
+                    <button
+                        onClick={() => setExpanded(!expanded)}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline mt-1 w-fit"
+                    >
+                        {expanded ? (
+                            <>
+                                <ChevronUp className="h-3 w-3" />
+                                Visa mindre
+                            </>
+                        ) : (
+                            <>
+                                <ChevronDown className="h-3 w-3" />
+                                Visa mer
+                            </>
+                        )}
+                    </button>
+                )}
+            </div>
+        </div>
     );
 };
