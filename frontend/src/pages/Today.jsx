@@ -270,15 +270,12 @@ export const Today = () => {
                                     } catch (e) { }
                                 }
 
-                                return (
-                                    <div
-                                        key={message.id}
-                                        className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0"
-                                    >
+                                const content = (
+                                    <>
                                         <Mail className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-medium truncate">
+                                                <span className="font-medium truncate group-hover:text-primary transition-colors">
                                                     {message.subject || 'Inget ämne'}
                                                 </span>
                                                 {message.direction === 'outbound' && (
@@ -292,12 +289,9 @@ export const Today = () => {
                                                 {message.customers && (
                                                     <>
                                                         <span>→</span>
-                                                        <Link
-                                                            to={`/kund/${message.customers.id}`}
-                                                            className="text-primary hover:underline"
-                                                        >
+                                                        <span className="text-primary">
                                                             {message.customers.name}
-                                                        </Link>
+                                                        </span>
                                                     </>
                                                 )}
                                             </div>
@@ -305,6 +299,23 @@ export const Today = () => {
                                         <span className="text-xs text-muted-foreground shrink-0">
                                             {formattedDate}
                                         </span>
+                                    </>
+                                );
+
+                                return message.customer_id ? (
+                                    <Link
+                                        key={message.id}
+                                        to={`/kund/${message.customer_id}`}
+                                        className="group flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0 hover:bg-muted/50 -mx-4 px-4 py-2 transition-colors"
+                                    >
+                                        {content}
+                                    </Link>
+                                ) : (
+                                    <div
+                                        key={message.id}
+                                        className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0"
+                                    >
+                                        {content}
                                     </div>
                                 );
                             })
