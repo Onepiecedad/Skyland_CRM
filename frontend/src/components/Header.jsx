@@ -15,13 +15,21 @@ export const Header = () => {
         <header className="border-b bg-background">
             <div className="container mx-auto flex h-16 items-center justify-between px-4">
                 <div className="flex items-center gap-8">
-                    <h1 className="text-xl font-bold">Marinmekaniker</h1>
+                    <Link to="/" className="text-xl font-bold hover:text-primary transition-colors">
+                        Marinmekaniker
+                    </Link>
                     <nav className="flex gap-4">
                         <Link
                             to="/"
                             className={`text-sm font-medium transition-colors hover:text-primary ${location.pathname === '/' ? 'text-primary' : 'text-muted-foreground'}`}
                         >
                             Idag
+                        </Link>
+                        <Link
+                            to="/meddelanden"
+                            className={`text-sm font-medium transition-colors hover:text-primary ${location.pathname === '/meddelanden' ? 'text-primary' : 'text-muted-foreground'}`}
+                        >
+                            Meddelanden
                         </Link>
                         <Link
                             to="/kunder"

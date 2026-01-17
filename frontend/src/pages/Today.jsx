@@ -6,11 +6,12 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Mail, ArrowRight } from 'lucide-react';
 
 export const Today = () => {
     const [leads, setLeads] = useState([]);
     const [jobs, setJobs] = useState([]);
+    const [messages, setMessages] = useState([]);
     const [stats, setStats] = useState({ leadsCount: 0, customersCount: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -45,7 +46,30 @@ export const Today = () => {
             if (jobsError) throw jobsError;
             setJobs(jobsData || []);
 
-            // 3. Stats
+            // 3. Fetch 5 latest messages
+            const { data: messagesData, error: messagesError } = await supabase
+                .from('messages')
+                .select(`
+                    id,
+                    subject,
+                    from_email,
+                    from_name,
+                    direction,
+                    received_at,
+                    body_preview,
+                    customer_id,
+                    customers (
+                        id,
+                        name
+                    )
+                `)
+                .order('received_at', { ascending: false })
+                .limit(5);
+
+            if (messagesError) throw messagesError;
+            setMessages(messagesData || []);
+
+            // 4. Stats
             const { count: leadsCount, error: leadsCountError } = await supabase
                 .from('leads')
                 .select('*', { count: 'exact', head: true })
@@ -221,6 +245,72 @@ export const Today = () => {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Senaste meddelanden */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle>Senaste meddelanden</CardTitle>
+                        <Link
+                            to="/meddelanden"
+                            className="flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                            Visa alla
+                            <ArrowRight className="h-4 w-4" />
+                        </Link>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {messages.length === 0 ? (
+                            <p className="text-muted-foreground text-center py-4">Inga meddelanden</p>
+                        ) : (
+                            messages.map((message) => {
+                                let formattedDate = '';
+                                if (message.received_at) {
+                                    try {
+                                        formattedDate = format(new Date(message.received_at), 'd MMM HH:mm', { locale: sv });
+                                    } catch (e) { }
+                                }
+
+                                return (
+                                    <div
+                                        key={message.id}
+                                        className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0"
+                                    >
+                                        <Mail className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium truncate">
+                                                    {message.subject || 'Inget ämne'}
+                                                </span>
+                                                {message.direction === 'outbound' && (
+                                                    <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">
+                                                        Skickat
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <span>{message.from_name || message.from_email || 'Okänd'}</span>
+                                                {message.customers && (
+                                                    <>
+                                                        <span>→</span>
+                                                        <Link
+                                                            to={`/kund/${message.customers.id}`}
+                                                            className="text-primary hover:underline"
+                                                        >
+                                                            {message.customers.name}
+                                                        </Link>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground shrink-0">
+                                            {formattedDate}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </CardContent>
+                </Card>
             </main>
         </div>
     );
