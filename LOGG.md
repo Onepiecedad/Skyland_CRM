@@ -1,5 +1,46 @@
 # Utvecklingslogg
 
+## 2026-01-16 - Skapad: Historical Email Import workflow
+
+### Syfte
+
+Importera 6 månaders mejlhistorik (både INBOX och Skickat) från Thomas inbox till Supabase CRM.
+
+### Workflow-komponenter
+
+1. **Manual Trigger** – Startar import manuellt
+2. **Fetch INBOX / Fetch Sent** – Hämtar mejl parallellt (SINCE 15-Jul-2025)
+3. **Merge** – Slår ihop alla mejl
+4. **Process Emails** – Deduplicering, riktningsbestämning, mojibake-fix
+5. **Loop Each** – Bearbetar ett mejl i taget
+6. **Find Customer** – Söker befintlig kund på email
+7. **Customer Exists?** – Villkorslogik
+8. **Create Customer** – Skapar ny kund om den inte finns (source: `email_import`)
+9. **Prepare Message** – Formaterar meddelandedata
+10. **Insert Message** – Sparar till `messages`-tabellen
+
+### Filer
+
+* `Historical_Email_Import.json` – n8n workflow (importera i n8n UI)
+
+### Importinstruktioner
+
+1. Öppna n8n Dashboard
+2. Gå till Workflows → Add Workflow → Import from File
+3. Välj `Historical_Email_Import.json`
+4. Verifiera att credentials är korrekt kopplade (IMAP + Supabase)
+5. **TEST FÖRST:** Sätt limit till 5 i Fetch INBOX och Fetch Sent
+6. Kör Manual Trigger
+7. Om OK: Ta bort limit eller sätt till 500 för full import
+
+### Viktigt
+
+* Thomas adresser (info@, thomas@, <thomas.guldager@marinmekaniker.nu>) skapas ALDRIG som kunder
+* Mejl mellan Thomas egna adresser ignoreras helt
+* `direction` = 'inbound' för inkommande, 'outbound' för skickade
+
+---
+
 ## 2026-01-15 (em) - Buggfix: Felaktig datalänkning i inbox
 
 ### Problem identifierat
