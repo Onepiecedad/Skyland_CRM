@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw, Mail, ArrowRight, Users, FileText, Calendar, TrendingUp } from 'lucide-react';
+import { AlertCircle, RefreshCw, Mail, ArrowRight, Users, FileText, Calendar, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
 export const Today = () => {
     const [leads, setLeads] = useState([]);
@@ -16,6 +16,7 @@ export const Today = () => {
     const [stats, setStats] = useState({ leadsCount: 0, customersCount: 0, jobsCount: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -230,13 +231,28 @@ export const Today = () => {
 
                     {/* Kommande jobb - Kalendervy */}
                     <Card className="h-full">
-                        <CardHeader className="pb-2 sm:pb-4">
-                            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
-                                Kommande 7 dagar
+                        <CardHeader
+                            className="pb-2 sm:pb-4 md:cursor-default cursor-pointer hover:bg-muted/50 md:hover:bg-transparent transition-colors"
+                            onClick={() => setIsCalendarExpanded(!isCalendarExpanded)}
+                        >
+                            <CardTitle className="text-base sm:text-lg flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+                                    <span>Kommande 7 dagar</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-normal text-muted-foreground md:hidden">
+                                        {jobs.filter(j => j.scheduled_date).length} jobb
+                                    </span>
+                                    {isCalendarExpanded ? (
+                                        <ChevronUp className="h-4 w-4 md:hidden" />
+                                    ) : (
+                                        <ChevronDown className="h-4 w-4 md:hidden" />
+                                    )}
+                                </div>
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className={`space-y-3 ${isCalendarExpanded ? 'block' : 'hidden'} md:block`}>
                             {(() => {
                                 const today = new Date();
                                 const days = [];

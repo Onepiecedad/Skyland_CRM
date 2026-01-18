@@ -21,6 +21,14 @@ import {
     Search
 } from 'lucide-react';
 
+// Utility to decode HTML entities
+const decodeHTML = (html) => {
+    if (!html) return '';
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+};
+
 
 export const Messages = () => {
     const [messages, setMessages] = useState([]);
@@ -190,8 +198,9 @@ export const Messages = () => {
                             {filteredMessages.map((message) => {
                                 const isExpanded = expandedIds.has(message.id);
 
-                                // Get the full content (prioritize body_full over body_preview)
-                                const fullContent = message.body_full || message.body_preview || '';
+                                // Get the full content (prioritize body_full over body_preview) and decode HTML entities
+                                const rawContent = message.body_full || message.body_preview || '';
+                                const fullContent = decodeHTML(rawContent);
 
                                 // Determine if we should show expand button
                                 const hasMore = fullContent.length > 300;

@@ -5,6 +5,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+// Utility to decode HTML entities
+const decodeHTML = (html) => {
+    if (!html) return '';
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+};
+
 /**
  * Timeline component that fetches and displays both emails (from messages)
  * and form submissions (from inbox via leads) for a customer.
@@ -67,8 +75,13 @@ export const Timeline = ({ customerId }) => {
                 // 4. Transform to unified shape
                 // Handle varying column names for email content: content, body_preview, or body
                 const emailItems = (emailsData || []).map(email => {
-                    const fullContent = email.body_full || email.content || email.body_preview || email.body || '';
-                    const previewContent = email.body_preview || email.content || email.body || '';
+                    const rawFullContent = email.body_full || email.content || email.body_preview || email.body || '';
+                    const rawPreviewContent = email.body_preview || email.content || email.body || email.body_full || '';
+
+                    // Decode HTML entities
+                    const fullContent = decodeHTML(rawFullContent);
+                    const previewContent = decodeHTML(rawPreviewContent);
+
                     const fromLabel = email.from_name || email.from_address || email.from_email || 'Okänd avsändare';
 
                     return {
@@ -76,26 +89,29 @@ export const Timeline = ({ customerId }) => {
                         type: 'email',
                         title: email.subject || 'Inget ämne',
                         from_label: fromLabel,
-                        preview: previewContent.length > 200
-                            ? previewContent.substring(0, 200) + '...'
+                        preview: previewContent.length > 300
+                            ? previewContent.substring(0, 300)
                             : previewContent,
                         fullContent: fullContent,
-                        hasMore: fullContent.length > 200,
+                        hasMore: fullContent.length > 300,
                         ts: email.received_at || email.created_at || null,
                         direction: email.direction,
                     };
                 });
 
-                const formItems = (formsData || []).map(form => ({
-                    id: form.id,
-                    type: 'form',
-                    title: 'Formulär',
-                    from_label: form.name || form.email || 'Okänd avsändare',
-                    preview: form.message
-                        ? (form.message.length > 160 ? form.message.substring(0, 160) + '...' : form.message)
-                        : '',
-                    ts: form.created_at || null,
-                }));
+                const formItems = (formsData || []).map(form => {
+                    const decodedMessage = decodeHTML(form.message || '');
+                    return {
+                        id: form.id,
+                        type: 'form',
+                        title: 'Formulär',
+                        from_label: form.name || form.email || 'Okänd avsändare',
+                        preview: decodedMessage
+                            ? (decodedMessage.length > 160 ? decodedMessage.substring(0, 160) + '...' : decodedMessage)
+                            : '',
+                        ts: form.created_at || null,
+                    };
+                });
 
                 // 5. Merge and sort by timestamp (newest first)
                 const merged = [...emailItems, ...formItems];
@@ -248,7 +264,7 @@ const TimelineItem = ({ item }) => {
                     {item.from_label}
                 </div>
                 {displayContent && (
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 whitespace-pre-line line-clamp-4">
+                    <p className={`text-xs sm:text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words ${!expanded ? 'line-clamp-4' : ''}`}>
                         {displayContent}
                     </p>
                 )}
