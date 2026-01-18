@@ -270,9 +270,15 @@ export const Today = () => {
                                     } catch (e) { }
                                 }
 
-                                const content = (
-                                    <>
-                                        <Mail className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                                const hasCustomer = !!message.customer_id;
+
+                                return hasCustomer ? (
+                                    <Link
+                                        key={message.id}
+                                        to={`/kund/${message.customer_id}`}
+                                        className="group flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0 hover:bg-accent -mx-4 px-4 py-2 transition-colors cursor-pointer rounded-md"
+                                    >
+                                        <Mail className="h-4 w-4 text-muted-foreground mt-1 shrink-0 group-hover:text-primary" />
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-medium truncate group-hover:text-primary transition-colors">
@@ -289,7 +295,7 @@ export const Today = () => {
                                                 {message.customers && (
                                                     <>
                                                         <span>→</span>
-                                                        <span className="text-primary">
+                                                        <span className="text-primary group-hover:underline">
                                                             {message.customers.name}
                                                         </span>
                                                     </>
@@ -299,23 +305,33 @@ export const Today = () => {
                                         <span className="text-xs text-muted-foreground shrink-0">
                                             {formattedDate}
                                         </span>
-                                    </>
-                                );
-
-                                return message.customer_id ? (
-                                    <Link
-                                        key={message.id}
-                                        to={`/kund/${message.customer_id}`}
-                                        className="group flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0 hover:bg-muted/50 -mx-4 px-4 py-2 transition-colors"
-                                    >
-                                        {content}
                                     </Link>
                                 ) : (
                                     <div
                                         key={message.id}
-                                        className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0"
+                                        className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0 -mx-4 px-4 py-2 opacity-60"
+                                        title="Ingen kundkoppling"
                                     >
-                                        {content}
+                                        <Mail className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium truncate">
+                                                    {message.subject || 'Inget ämne'}
+                                                </span>
+                                                {message.direction === 'outbound' && (
+                                                    <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">
+                                                        Skickat
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <span>{message.from_name || message.from_email || 'Okänd'}</span>
+                                                <span className="text-xs italic">(ingen kund)</span>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground shrink-0">
+                                            {formattedDate}
+                                        </span>
                                     </div>
                                 );
                             })
