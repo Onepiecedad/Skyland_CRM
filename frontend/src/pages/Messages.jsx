@@ -44,12 +44,21 @@ const fixSwedishEncoding = (text) => {
         'å€¦': 'å', 'å€¡': 'ä', 'å€': 'ö',
         'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú',
         '☰': '', // Trigram symbols (often from encoding errors)
+        '▓': '', // Block characters (often from corrupted encoding)
+        '▒': '', // Medium shade block
+        '░': '', // Light shade block
+        '█': '', // Full block
         '�': '', // Replacement character
+        '\uFFFD': '', // Unicode replacement character
+        '\u2593': '', // Dark shade (▓)
+        '\u2592': '', // Medium shade (▒)
+        '\u2591': '', // Light shade (░)
+        '\u2588': '', // Full block (█)
     };
 
     let fixed = text;
     for (const [wrong, correct] of Object.entries(replacements)) {
-        fixed = fixed.replace(new RegExp(wrong, 'g'), correct);
+        fixed = fixed.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), correct);
     }
 
     return fixed;
