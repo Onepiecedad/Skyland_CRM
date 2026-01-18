@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw, Mail, ArrowRight } from 'lucide-react';
+import { AlertCircle, RefreshCw, Mail, ArrowRight, Users, FileText, Calendar, TrendingUp } from 'lucide-react';
 
 export const Today = () => {
     const [leads, setLeads] = useState([]);
@@ -112,8 +112,8 @@ export const Today = () => {
     if (error) return (
         <div className="min-h-screen bg-background flex flex-col">
             <Header />
-            <div className="flex-1 flex items-center justify-center">
-                <Card className="max-w-md">
+            <div className="flex-1 flex items-center justify-center p-4">
+                <Card className="max-w-md w-full">
                     <CardContent className="pt-6">
                         <div className="flex flex-col items-center gap-4 text-center">
                             <AlertCircle className="h-10 w-10 text-destructive" />
@@ -135,91 +135,104 @@ export const Today = () => {
     return (
         <div className="min-h-screen bg-background flex flex-col">
             <Header />
-            <main className="flex-1 container mx-auto px-4 py-8 space-y-8">
+            <main className="flex-1 container mx-auto px-4 py-4 sm:py-8 space-y-4 sm:space-y-8">
                 {/* Snabbstatistik */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Aktiva ärenden</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.leadsCount}</div>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50">
+                        <CardContent className="p-3 sm:p-6">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="p-2 bg-blue-500/10 rounded-lg">
+                                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">Ärenden</p>
+                                    <p className="text-xl sm:text-3xl font-bold">{stats.leadsCount}</p>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Antal kunder</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.customersCount}</div>
+                    <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/30 border-green-200/50">
+                        <CardContent className="p-3 sm:p-6">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="p-2 bg-green-500/10 rounded-lg">
+                                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">Kunder</p>
+                                    <p className="text-xl sm:text-3xl font-bold">{stats.customersCount}</p>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
                     {/* Att svara på */}
                     <Card className="h-full">
-                        <CardHeader>
-                            <CardTitle>Att svara på</CardTitle>
+                        <CardHeader className="pb-2 sm:pb-4">
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+                                Att svara på
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-2 sm:space-y-4">
                             {leads.length === 0 ? (
-                                <p className="text-muted-foreground text-center py-4">Inget att göra idag 🎉</p>
+                                <p className="text-muted-foreground text-center py-4 text-sm">Inget att göra idag 🎉</p>
                             ) : (
                                 leads.map((lead) => {
                                     const InnerContent = () => (
-                                        <>
-                                            <div className="space-y-1">
-                                                <div className="font-medium decoration-primary group-hover:underline">
+                                        <div className="flex items-start justify-between gap-2 w-full">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="font-medium text-sm sm:text-base truncate">
                                                     {lead.name || 'Okänd'}
                                                 </div>
-                                                <p className="text-sm text-muted-foreground">
+                                                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
                                                     {lead.ai_summary || lead.subject || 'Inget ämne'}
                                                 </p>
                                             </div>
-                                            <div className="flex flex-col items-end gap-1">
+                                            <div className="flex flex-col items-end gap-1 shrink-0">
                                                 <span className="text-xs text-muted-foreground">
                                                     {lead.created_at ? format(new Date(lead.created_at), 'd MMM', { locale: sv }) : ''}
                                                 </span>
                                                 {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
                                             </div>
-                                        </>
+                                        </div>
                                     );
 
                                     return lead.customer_id ? (
                                         <Link
                                             key={lead.id}
                                             to={`/kund/${lead.customer_id}`}
-                                            className="group flex justify-between items-start border-b last:border-0 pb-3 last:pb-0 pt-2 hover:bg-muted/50 transition-colors -mx-4 px-4"
+                                            className="group flex items-start border-b last:border-0 pb-2 sm:pb-3 last:pb-0 pt-1 sm:pt-2 hover:bg-muted/50 transition-colors -mx-3 sm:-mx-4 px-3 sm:px-4 rounded-lg"
                                         >
                                             <InnerContent />
                                         </Link>
                                     ) : (
-                                        <div key={lead.id} className="flex justify-between items-start border-b last:border-0 pb-3 last:pb-0 pt-2 -mx-4 px-4">
+                                        <div key={lead.id} className="flex items-start border-b last:border-0 pb-2 sm:pb-3 last:pb-0 pt-1 sm:pt-2 -mx-3 sm:-mx-4 px-3 sm:px-4">
                                             <InnerContent />
                                         </div>
                                     );
                                 })
-                            )}
-                            {leads.length >= 10 && (
-                                <p className="text-sm text-center text-muted-foreground pt-2">Visa alla (kommer snart)</p>
                             )}
                         </CardContent>
                     </Card>
 
                     {/* Kommande jobb */}
                     <Card className="h-full">
-                        <CardHeader>
-                            <CardTitle>Kommande jobb (7 dagar)</CardTitle>
+                        <CardHeader className="pb-2 sm:pb-4">
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+                                Kommande jobb (7 dagar)
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-2 sm:space-y-4">
                             {jobs.length === 0 ? (
-                                <p className="text-muted-foreground text-center py-4">Inga bokade jobb</p>
+                                <p className="text-muted-foreground text-center py-4 text-sm">Inga bokade jobb</p>
                             ) : (
                                 jobs.map((job) => (
-                                    <div key={job.id} className="flex justify-between items-start border-b last:border-0 pb-3 last:pb-0">
-                                        <div className="space-y-1">
-                                            <div className="font-medium">
+                                    <div key={job.id} className="flex justify-between items-start gap-2 border-b last:border-0 pb-2 sm:pb-3 last:pb-0">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-medium text-sm sm:text-base">
                                                 {job.customer_id ? (
                                                     <Link to={`/kund/${job.customer_id}`} className="hover:underline">
                                                         {job.title || 'Utan titel'}
@@ -228,12 +241,12 @@ export const Today = () => {
                                                     job.title || 'Utan titel'
                                                 )}
                                             </div>
-                                            <p className="text-sm text-muted-foreground truncate w-64">
+                                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
                                                 {job.description || ''}
                                             </p>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-sm font-medium">
+                                        <div className="text-right shrink-0">
+                                            <div className="text-xs sm:text-sm font-medium">
                                                 {job.scheduled_date ? format(new Date(job.scheduled_date), 'd MMM', { locale: sv }) : ''}
                                             </div>
                                             <div className="text-xs text-muted-foreground">
@@ -249,19 +262,22 @@ export const Today = () => {
 
                 {/* Senaste meddelanden */}
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>Senaste meddelanden</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 sm:pb-4">
+                        <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                            <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                            Senaste meddelanden
+                        </CardTitle>
                         <Link
                             to="/meddelanden"
-                            className="flex items-center gap-1 text-sm text-primary hover:underline"
+                            className="flex items-center gap-1 text-xs sm:text-sm text-primary hover:underline"
                         >
                             Visa alla
-                            <ArrowRight className="h-4 w-4" />
+                            <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Link>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-2 sm:space-y-3">
                         {messages.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">Inga meddelanden</p>
+                            <p className="text-muted-foreground text-center py-4 text-sm">Inga meddelanden</p>
                         ) : (
                             messages.map((message) => {
                                 let formattedDate = '';
@@ -277,12 +293,12 @@ export const Today = () => {
                                     <Link
                                         key={message.id}
                                         to={`/kund/${message.customer_id}`}
-                                        className="group flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0 hover:bg-accent -mx-4 px-4 py-2 transition-colors cursor-pointer rounded-md"
+                                        className="group flex items-start gap-2 sm:gap-3 border-b last:border-0 pb-2 sm:pb-3 last:pb-0 hover:bg-accent -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 transition-colors cursor-pointer rounded-md"
                                     >
-                                        <Mail className="h-4 w-4 text-muted-foreground mt-1 shrink-0 group-hover:text-primary" />
+                                        <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0 group-hover:text-primary" />
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium truncate group-hover:text-primary transition-colors">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-medium text-sm sm:text-base truncate group-hover:text-primary transition-colors">
                                                     {message.subject || 'Inget ämne'}
                                                 </span>
                                                 {message.direction === 'outbound' && (
@@ -291,32 +307,32 @@ export const Today = () => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <span>{message.from_name || message.from_email || 'Okänd'}</span>
+                                            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                                                <span className="truncate">{message.from_name || message.from_email || 'Okänd'}</span>
                                                 {message.customers && (
                                                     <>
                                                         <span>→</span>
-                                                        <span className="text-primary group-hover:underline">
+                                                        <span className="text-primary group-hover:underline truncate">
                                                             {formatCustomerName(message.customers.name, message.customers.email)}
                                                         </span>
                                                     </>
                                                 )}
                                             </div>
                                         </div>
-                                        <span className="text-xs text-muted-foreground shrink-0">
+                                        <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
                                             {formattedDate}
                                         </span>
                                     </Link>
                                 ) : (
                                     <div
                                         key={message.id}
-                                        className="flex items-start gap-3 border-b last:border-0 pb-3 last:pb-0 -mx-4 px-4 py-2 opacity-60"
+                                        className="flex items-start gap-2 sm:gap-3 border-b last:border-0 pb-2 sm:pb-3 last:pb-0 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 opacity-60"
                                         title="Ingen kundkoppling"
                                     >
-                                        <Mail className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                                        <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium truncate">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-medium text-sm sm:text-base truncate">
                                                     {message.subject || 'Inget ämne'}
                                                 </span>
                                                 {message.direction === 'outbound' && (
@@ -325,12 +341,12 @@ export const Today = () => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <span>{message.from_name || message.from_email || 'Okänd'}</span>
+                                            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                                                <span className="truncate">{message.from_name || message.from_email || 'Okänd'}</span>
                                                 <span className="text-xs italic">(ingen kund)</span>
                                             </div>
                                         </div>
-                                        <span className="text-xs text-muted-foreground shrink-0">
+                                        <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
                                             {formattedDate}
                                         </span>
                                     </div>

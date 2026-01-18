@@ -17,7 +17,9 @@ import {
     ArrowUp,
     ArrowDown,
     Trash2,
-    Mail
+    Mail,
+    ChevronRight,
+    Phone
 } from 'lucide-react';
 
 export const CustomerList = () => {
@@ -200,7 +202,7 @@ export const CustomerList = () => {
 
     if (loading) {
         return (
-            <div className="container mx-auto p-6">
+            <div className="container mx-auto p-4 sm:p-6">
                 <div className="flex items-center justify-center py-12">
                     <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -210,7 +212,7 @@ export const CustomerList = () => {
 
     if (error) {
         return (
-            <div className="container mx-auto p-6">
+            <div className="container mx-auto p-4 sm:p-6">
                 <Card className="max-w-md mx-auto">
                     <CardContent className="pt-6">
                         <div className="flex flex-col items-center gap-4 text-center">
@@ -228,17 +230,18 @@ export const CustomerList = () => {
     }
 
     return (
-        <div className="container mx-auto p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Kunder</h1>
+        <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Kunder</h1>
                 <div className="text-sm text-muted-foreground">
                     {filteredAndSorted.length} av {customers.length} kunder
                 </div>
             </div>
 
             {/* Search and actions bar */}
-            <div className="flex items-center gap-4 flex-wrap">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Sök på namn, email eller telefon..."
@@ -254,6 +257,7 @@ export const CustomerList = () => {
                         size="sm"
                         onClick={handleDelete}
                         disabled={deleting}
+                        className="w-full sm:w-auto"
                     >
                         {deleting ? (
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -265,7 +269,8 @@ export const CustomerList = () => {
                 )}
             </div>
 
-            <Card>
+            {/* Desktop Table View */}
+            <Card className="hidden md:block">
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>
@@ -347,6 +352,82 @@ export const CustomerList = () => {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+                {filteredAndSorted.length === 0 ? (
+                    <Card>
+                        <CardContent className="py-8">
+                            <p className="text-center text-muted-foreground">
+                                {searchQuery ? 'Inga kunder matchar sökningen' : 'Inga kunder ännu'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    filteredAndSorted.map((customer) => (
+                        <Link
+                            key={customer.id}
+                            to={`/kund/${customer.id}`}
+                            className="block"
+                        >
+                            <Card className={`hover:shadow-md transition-shadow ${selectedIds.has(customer.id) ? 'ring-2 ring-primary' : ''}`}>
+                                <CardContent className="p-4">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                                            <div
+                                                className="mt-1 shrink-0"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    toggleSelect(customer.id);
+                                                }}
+                                            >
+                                                <Checkbox
+                                                    checked={selectedIds.has(customer.id)}
+                                                    onCheckedChange={() => toggleSelect(customer.id)}
+                                                />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="font-semibold truncate">
+                                                    {formatCustomerName(customer.name, customer.email)}
+                                                </div>
+                                                <div className="flex flex-col gap-1 mt-1">
+                                                    {customer.email && (
+                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                            <Mail className="h-3.5 w-3.5 shrink-0" />
+                                                            <span className="truncate">{customer.email}</span>
+                                                        </div>
+                                                    )}
+                                                    {customer.phone && (
+                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                            <Phone className="h-3.5 w-3.5 shrink-0" />
+                                                            <span>{customer.phone}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                                    {customer.message_count > 0 && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Mail className="h-3 w-3" />
+                                                            {customer.message_count} meddelanden
+                                                        </span>
+                                                    )}
+                                                    {customer.created_at && (
+                                                        <span>
+                                                            Skapad {format(new Date(customer.created_at), 'd MMM', { locale: sv })}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    ))
+                )}
+            </div>
         </div>
     );
 };

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw, Pencil, Save, X } from 'lucide-react';
+import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin } from 'lucide-react';
 
 export const CustomerDetail = () => {
   const { id } = useParams();
@@ -120,7 +120,7 @@ export const CustomerDetail = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <div className="flex items-center justify-center py-12">
           <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -130,7 +130,7 @@ export const CustomerDetail = () => {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <Card className="max-w-md mx-auto">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center gap-4 text-center">
@@ -154,7 +154,7 @@ export const CustomerDetail = () => {
 
   if (!customer) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <Card className="max-w-md mx-auto">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center gap-4 text-center">
@@ -172,27 +172,61 @@ export const CustomerDetail = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{formatCustomerName(customer.name, customer.email)}</h1>
-        <div className="flex gap-2">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="shrink-0 -ml-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl sm:text-3xl font-bold tracking-tight truncate">
+            {formatCustomerName(customer.name, customer.email)}
+          </h1>
+        </div>
+        <div className="flex gap-2 ml-10 sm:ml-0">
           {!isEditing && (
-            <Button variant="outline" onClick={() => setIsEditing(true)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Redigera
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+              <Pencil className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Redigera</span>
             </Button>
           )}
-          <Button variant="outline" onClick={() => navigate(-1)}>
-            Tillbaka
-          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Quick actions on mobile */}
+      {!isEditing && (customer.phone || customer.email) && (
+        <div className="flex gap-2 sm:hidden">
+          {customer.phone && (
+            <a
+              href={`tel:${customer.phone}`}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-lg font-medium"
+            >
+              <Phone className="h-4 w-4" />
+              Ring
+            </a>
+          )}
+          {customer.email && (
+            <a
+              href={`mailto:${customer.email}`}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-secondary text-secondary-foreground rounded-lg font-medium"
+            >
+              <MailIcon className="h-4 w-4" />
+              Mejla
+            </a>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Kontaktinfo */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Kontakt</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Kontakt</CardTitle>
             {isEditing && (
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -200,8 +234,8 @@ export const CustomerDetail = () => {
                     <RefreshCw className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
-                      <Save className="h-4 w-4 mr-1" />
-                      Spara
+                      <Save className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Spara</span>
                     </>
                   )}
                 </Button>
@@ -211,7 +245,7 @@ export const CustomerDetail = () => {
               </div>
             )}
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             {isEditing ? (
               <>
                 <div className="space-y-2">
@@ -274,24 +308,29 @@ export const CustomerDetail = () => {
               </>
             ) : (
               <>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground block">Namn</span>
-                  <span>{customer.name || '-'}</span>
+                <div className="flex items-start gap-3">
+                  <MailIcon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-xs text-muted-foreground block">Email</span>
+                    <span className="break-all">{customer.email || '-'}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground block">Email</span>
-                  <span>{customer.email || '-'}</span>
+                <div className="flex items-start gap-3">
+                  <Phone className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Telefon</span>
+                    <span>{customer.phone || '-'}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground block">Telefon</span>
-                  <span>{customer.phone || '-'}</span>
-                </div>
-                <div>
-                  <span className="text-sm font-medium text-muted-foreground block">Adress</span>
-                  <span>{customer.address || '-'}</span>
-                  {(customer.postal_code || customer.city) && (
-                    <span className="block">{customer.postal_code} {customer.city}</span>
-                  )}
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Adress</span>
+                    <span>{customer.address || '-'}</span>
+                    {(customer.postal_code || customer.city) && (
+                      <span className="block">{customer.postal_code} {customer.city}</span>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -300,25 +339,25 @@ export const CustomerDetail = () => {
 
         {/* Båtar */}
         <Card>
-          <CardHeader>
-            <CardTitle>Båtar</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Båtar</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {boats.length === 0 ? (
-              <p className="text-muted-foreground text-center py-2">Ingen båt registrerad</p>
+              <p className="text-muted-foreground text-center py-2 text-sm">Ingen båt registrerad</p>
             ) : (
               boats.map((boat) => (
                 <div key={boat.id} className="p-3 border rounded-lg bg-muted/20">
-                  <div className="font-semibold">
+                  <div className="font-semibold text-sm sm:text-base">
                     {boat.name || `${boat.make || ''} ${boat.model || ''}`.trim() || 'Namnlös båt'}
                   </div>
                   {boat.registration_number && (
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       Reg: {boat.registration_number}
                     </div>
                   )}
                   {(boat.engine_make || boat.engine_model) && (
-                    <div className="text-sm mt-1">
+                    <div className="text-xs sm:text-sm mt-1">
                       Motor: {[boat.engine_make, boat.engine_model].filter(Boolean).join(' ')}
                     </div>
                   )}
@@ -330,25 +369,25 @@ export const CustomerDetail = () => {
 
         {/* Ärenden (Leads) */}
         <Card>
-          <CardHeader>
-            <CardTitle>Ärenden</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Ärenden</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {leads.length === 0 ? (
-              <p className="text-muted-foreground text-center py-2">Inga ärenden</p>
+              <p className="text-muted-foreground text-center py-2 text-sm">Inga ärenden</p>
             ) : (
               leads.map((lead) => (
-                <div key={lead.id} className="flex justify-between items-start border-b last:border-0 pb-3 last:pb-0">
-                  <div>
-                    <div className="font-medium">
+                <div key={lead.id} className="flex justify-between items-start gap-2 border-b last:border-0 pb-3 last:pb-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm sm:text-base truncate">
                       {lead.ai_summary || lead.subject || 'Inget ämne'}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {lead.created_at ? format(new Date(lead.created_at), 'd MMM yyyy', { locale: sv }) : ''}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1 items-end">
-                    {lead.status && <Badge variant="outline">{lead.status}</Badge>}
+                  <div className="flex flex-col gap-1 items-end shrink-0">
+                    {lead.status && <Badge variant="outline" className="text-xs">{lead.status}</Badge>}
                     {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
                   </div>
                 </div>

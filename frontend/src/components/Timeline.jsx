@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 /**
@@ -76,11 +76,11 @@ export const Timeline = ({ customerId }) => {
                         type: 'email',
                         title: email.subject || 'Inget ämne',
                         from_label: fromLabel,
-                        preview: previewContent.length > 300
-                            ? previewContent.substring(0, 300) + '...'
+                        preview: previewContent.length > 200
+                            ? previewContent.substring(0, 200) + '...'
                             : previewContent,
                         fullContent: fullContent,
-                        hasMore: fullContent.length > 300,
+                        hasMore: fullContent.length > 200,
                         ts: email.received_at || email.created_at || null,
                         direction: email.direction,
                     };
@@ -130,8 +130,11 @@ export const Timeline = ({ customerId }) => {
     if (loading) {
         return (
             <Card>
-                <CardHeader>
-                    <CardTitle>Tidslinje</CardTitle>
+                <CardHeader className="pb-2 sm:pb-4">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                        Tidslinje
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-center py-8">
@@ -146,11 +149,14 @@ export const Timeline = ({ customerId }) => {
     if (error) {
         return (
             <Card>
-                <CardHeader>
-                    <CardTitle>Tidslinje</CardTitle>
+                <CardHeader className="pb-2 sm:pb-4">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                        Tidslinje
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-destructive text-center py-4">{error}</p>
+                    <p className="text-destructive text-center py-4 text-sm">{error}</p>
                 </CardContent>
             </Card>
         );
@@ -160,11 +166,14 @@ export const Timeline = ({ customerId }) => {
     if (!items || items.length === 0) {
         return (
             <Card>
-                <CardHeader>
-                    <CardTitle>Tidslinje</CardTitle>
+                <CardHeader className="pb-2 sm:pb-4">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                        Tidslinje
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-muted-foreground text-center py-4">Ingen kommunikation ännu</p>
+                    <p className="text-muted-foreground text-center py-4 text-sm">Ingen kommunikation ännu</p>
                 </CardContent>
             </Card>
         );
@@ -172,11 +181,17 @@ export const Timeline = ({ customerId }) => {
 
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Tidslinje</CardTitle>
+            <CardHeader className="pb-2 sm:pb-4">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                    Tidslinje
+                    <span className="text-xs sm:text-sm font-normal text-muted-foreground ml-1">
+                        ({items.length})
+                    </span>
+                </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="space-y-6 border-l-2 border-muted pl-6 relative">
+                <div className="space-y-4 sm:space-y-6 border-l-2 border-muted pl-4 sm:pl-6 relative">
                     {items.map((item) => (
                         <TimelineItem key={item.id} item={item} />
                     ))}
@@ -196,9 +211,11 @@ const TimelineItem = ({ item }) => {
 
     // Format timestamp with edge case handling
     let formattedDate = 'Okänt datum';
+    let shortDate = '';
     if (item.ts) {
         try {
             formattedDate = format(new Date(item.ts), 'd MMM yyyy HH:mm', { locale: sv });
+            shortDate = format(new Date(item.ts), 'd MMM HH:mm', { locale: sv });
         } catch (e) {
             console.warn('Invalid timestamp:', item.ts);
         }
@@ -209,35 +226,36 @@ const TimelineItem = ({ item }) => {
 
     return (
         <div className="relative">
-            <span className="absolute -left-[31px] top-1 bg-background border-2 border-primary rounded-full w-4 h-4" />
+            <span className="absolute -left-[21px] sm:-left-[31px] top-1 bg-background border-2 border-primary rounded-full w-3 h-3 sm:w-4 sm:h-4" />
             <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">
-                    {formattedDate}
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                    <span className="hidden sm:inline">{formattedDate}</span>
+                    <span className="sm:hidden">{shortDate}</span>
                 </span>
-                <div className="font-semibold flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                <div className="font-semibold text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                     <span>{sourceLabel}</span>
                     {isEmail && item.direction === 'outbound' && (
-                        <span className="text-xs text-muted-foreground">(skickat)</span>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">skickat</span>
                     )}
                 </div>
                 {item.title && item.type === 'email' && (
-                    <div className="text-sm font-medium text-foreground">
+                    <div className="text-xs sm:text-sm font-medium text-foreground truncate">
                         {item.title}
                     </div>
                 )}
-                <div className="text-sm text-foreground">
+                <div className="text-xs sm:text-sm text-foreground">
                     {item.from_label}
                 </div>
                 {displayContent && (
-                    <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 whitespace-pre-line line-clamp-4">
                         {displayContent}
                     </p>
                 )}
                 {canExpand && (
                     <button
                         onClick={() => setExpanded(!expanded)}
-                        className="flex items-center gap-1 text-xs text-primary hover:underline mt-1 w-fit"
+                        className="flex items-center gap-1 text-xs text-primary hover:underline mt-1 w-fit py-1"
                     >
                         {expanded ? (
                             <>
