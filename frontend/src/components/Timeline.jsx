@@ -28,12 +28,21 @@ const fixSwedishEncoding = (text) => {
         'å€¦': 'å', 'å€¡': 'ä', 'å€': 'ö',
         'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú',
         '☰': '', // Trigram symbols (often from encoding errors)
+        '▓': '', // Block characters (often from corrupted encoding)
+        '▒': '', // Medium shade block
+        '░': '', // Light shade block
+        '█': '', // Full block
         '�': '', // Replacement character
+        '\uFFFD': '', // Unicode replacement character
+        '\u2593': '', // Dark shade (▓)
+        '\u2592': '', // Medium shade (▒)
+        '\u2591': '', // Light shade (░)
+        '\u2588': '', // Full block (█)
     };
 
     let fixed = text;
     for (const [wrong, correct] of Object.entries(replacements)) {
-        fixed = fixed.replace(new RegExp(wrong, 'g'), correct);
+        fixed = fixed.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), correct);
     }
 
     return fixed;
@@ -77,6 +86,7 @@ export const Timeline = ({ customerId }) => {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     useEffect(() => {
         if (!customerId) {
@@ -201,17 +211,37 @@ export const Timeline = ({ customerId }) => {
     if (loading) {
         return (
             <Card>
-                <CardHeader className="pb-2 sm:pb-4">
-                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                        Tidslinje
+                <CardHeader
+                    className="pb-2 sm:pb-4 cursor-pointer sm:cursor-default"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                >
+                    <CardTitle className="text-base sm:text-lg flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                            Tidslinje
+                        </div>
+                        <button
+                            className="sm:hidden text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCollapsed(!isCollapsed);
+                            }}
+                        >
+                            {isCollapsed ? (
+                                <ChevronDown className="h-4 w-4" />
+                            ) : (
+                                <ChevronUp className="h-4 w-4" />
+                            )}
+                        </button>
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-center py-8">
-                        <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                </CardContent>
+                {!isCollapsed && (
+                    <CardContent>
+                        <div className="flex items-center justify-center py-8">
+                            <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    </CardContent>
+                )}
             </Card>
         );
     }
@@ -220,15 +250,35 @@ export const Timeline = ({ customerId }) => {
     if (error) {
         return (
             <Card>
-                <CardHeader className="pb-2 sm:pb-4">
-                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                        Tidslinje
+                <CardHeader
+                    className="pb-2 sm:pb-4 cursor-pointer sm:cursor-default"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                >
+                    <CardTitle className="text-base sm:text-lg flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                            Tidslinje
+                        </div>
+                        <button
+                            className="sm:hidden text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCollapsed(!isCollapsed);
+                            }}
+                        >
+                            {isCollapsed ? (
+                                <ChevronDown className="h-4 w-4" />
+                            ) : (
+                                <ChevronUp className="h-4 w-4" />
+                            )}
+                        </button>
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-destructive text-center py-4 text-sm">{error}</p>
-                </CardContent>
+                {!isCollapsed && (
+                    <CardContent>
+                        <p className="text-destructive text-center py-4 text-sm">{error}</p>
+                    </CardContent>
+                )}
             </Card>
         );
     }
@@ -237,37 +287,77 @@ export const Timeline = ({ customerId }) => {
     if (!items || items.length === 0) {
         return (
             <Card>
-                <CardHeader className="pb-2 sm:pb-4">
-                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                        Tidslinje
+                <CardHeader
+                    className="pb-2 sm:pb-4 cursor-pointer sm:cursor-default"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                >
+                    <CardTitle className="text-base sm:text-lg flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                            Tidslinje
+                        </div>
+                        <button
+                            className="sm:hidden text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCollapsed(!isCollapsed);
+                            }}
+                        >
+                            {isCollapsed ? (
+                                <ChevronDown className="h-4 w-4" />
+                            ) : (
+                                <ChevronUp className="h-4 w-4" />
+                            )}
+                        </button>
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground text-center py-4 text-sm">Ingen kommunikation ännu</p>
-                </CardContent>
+                {!isCollapsed && (
+                    <CardContent>
+                        <p className="text-muted-foreground text-center py-4 text-sm">Ingen kommunikation ännu</p>
+                    </CardContent>
+                )}
             </Card>
         );
     }
 
     return (
         <Card>
-            <CardHeader className="pb-2 sm:pb-4">
-                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                    Tidslinje
-                    <span className="text-xs sm:text-sm font-normal text-muted-foreground ml-1">
-                        ({items.length})
-                    </span>
+            <CardHeader
+                className="pb-2 sm:pb-4 cursor-pointer sm:cursor-default"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+            >
+                <CardTitle className="text-base sm:text-lg flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                        Tidslinje
+                        <span className="text-xs sm:text-sm font-normal text-muted-foreground ml-1">
+                            ({items.length})
+                        </span>
+                    </div>
+                    <button
+                        className="sm:hidden text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsCollapsed(!isCollapsed);
+                        }}
+                    >
+                        {isCollapsed ? (
+                            <ChevronDown className="h-4 w-4" />
+                        ) : (
+                            <ChevronUp className="h-4 w-4" />
+                        )}
+                    </button>
                 </CardTitle>
             </CardHeader>
-            <CardContent>
-                <div className="space-y-4 sm:space-y-6 border-l-2 border-muted pl-4 sm:pl-6 relative">
-                    {items.map((item) => (
-                        <TimelineItem key={item.id} item={item} />
-                    ))}
-                </div>
-            </CardContent>
+            {!isCollapsed && (
+                <CardContent>
+                    <div className="space-y-4 sm:space-y-6 border-l-2 border-muted pl-4 sm:pl-6 relative">
+                        {items.map((item) => (
+                            <TimelineItem key={item.id} item={item} />
+                        ))}
+                    </div>
+                </CardContent>
+            )}
         </Card>
     );
 };
