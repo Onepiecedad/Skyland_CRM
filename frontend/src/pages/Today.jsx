@@ -228,45 +228,91 @@ export const Today = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Kommande jobb */}
+                    {/* Kommande jobb - Kalendervy */}
                     <Card className="h-full">
                         <CardHeader className="pb-2 sm:pb-4">
                             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                                 <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
-                                Kommande jobb (7 dagar)
+                                Kommande 7 dagar
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2 sm:space-y-4">
-                            {jobs.length === 0 ? (
-                                <p className="text-muted-foreground text-center py-4 text-sm">Inga bokade jobb</p>
-                            ) : (
-                                jobs.map((job) => (
-                                    <div key={job.id} className="flex justify-between items-start gap-2 border-b last:border-0 pb-2 sm:pb-3 last:pb-0">
-                                        <div className="min-w-0 flex-1">
-                                            <div className="font-medium text-sm sm:text-base">
-                                                {job.customer_id ? (
-                                                    <Link to={`/kund/${job.customer_id}`} className="hover:underline">
-                                                        {job.title || 'Utan titel'}
-                                                    </Link>
-                                                ) : (
-                                                    job.title || 'Utan titel'
-                                                )}
+                        <CardContent className="space-y-3">
+                            {(() => {
+                                const today = new Date();
+                                const days = [];
+
+                                // Create 7 days
+                                for (let i = 0; i < 7; i++) {
+                                    const date = addDays(today, i);
+                                    const dateStr = format(date, 'yyyy-MM-dd');
+                                    const dayJobs = jobs.filter(j => j.scheduled_date === dateStr);
+
+                                    days.push({
+                                        date,
+                                        dateStr,
+                                        jobs: dayJobs,
+                                        isToday: i === 0
+                                    });
+                                }
+
+                                return days.map((day) => {
+                                    const hasJobs = day.jobs.length > 0;
+
+                                    return (
+                                        <div
+                                            key={day.dateStr}
+                                            className={`border rounded-lg p-3 ${day.isToday ? 'bg-blue-50 border-blue-200' : 'bg-muted/30'} ${hasJobs ? '' : 'opacity-60'}`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-sm">
+                                                        {format(day.date, 'EEEE', { locale: sv })}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {format(day.date, 'd MMM', { locale: sv })}
+                                                    </span>
+                                                    {day.isToday && (
+                                                        <Badge variant="default" className="text-xs py-0">Idag</Badge>
+                                                    )}
+                                                </div>
+                                                <span className="text-xs font-medium text-muted-foreground">
+                                                    {day.jobs.length} jobb
+                                                </span>
                                             </div>
-                                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                                                {job.description || ''}
-                                            </p>
+
+                                            {hasJobs ? (
+                                                <div className="space-y-2">
+                                                    {day.jobs.map((job) => (
+                                                        <Link
+                                                            key={job.id}
+                                                            to={`/jobb/${job.id}`}
+                                                            className="block p-2 bg-white rounded hover:bg-blue-50 transition-colors border"
+                                                        >
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="font-medium text-sm truncate">
+                                                                        {job.title || 'Utan titel'}
+                                                                    </div>
+                                                                    {job.customer_id && (
+                                                                        <div className="text-xs text-muted-foreground truncate">
+                                                                            Kund #{job.customer_id.substring(0, 8)}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground shrink-0">
+                                                                    {job.scheduled_time || ''}
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground text-center py-1">Inga jobb</p>
+                                            )}
                                         </div>
-                                        <div className="text-right shrink-0">
-                                            <div className="text-xs sm:text-sm font-medium">
-                                                {job.scheduled_date ? format(new Date(job.scheduled_date), 'd MMM', { locale: sv }) : ''}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {job.scheduled_time || ''}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
+                                    );
+                                });
+                            })()}
                         </CardContent>
                     </Card>
                 </div>
