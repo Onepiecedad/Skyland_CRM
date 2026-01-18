@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
+import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -207,7 +208,7 @@ export const Messages = () => {
                                                             to={`/kund/${message.customers.id}`}
                                                             className="text-primary hover:underline"
                                                         >
-                                                            → {message.customers.name || message.customers.email}
+                                                            → {formatCustomerName(message.customers.name, message.customers.email)}
                                                         </Link>
                                                     )}
                                                 </div>

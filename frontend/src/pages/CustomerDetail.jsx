@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { formatCustomerName } from '../lib/formatName';
 import { Timeline } from '../components/Timeline';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -173,7 +174,7 @@ export const CustomerDetail = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{customer.name || 'Okänd kund'}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{formatCustomerName(customer.name, customer.email)}</h1>
         <div className="flex gap-2">
           {!isEditing && (
             <Button variant="outline" onClick={() => setIsEditing(true)}>

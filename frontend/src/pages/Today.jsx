@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -296,7 +297,7 @@ export const Today = () => {
                                                     <>
                                                         <span>→</span>
                                                         <span className="text-primary group-hover:underline">
-                                                            {message.customers.name}
+                                                            {formatCustomerName(message.customers.name, message.customers.email)}
                                                         </span>
                                                     </>
                                                 )}

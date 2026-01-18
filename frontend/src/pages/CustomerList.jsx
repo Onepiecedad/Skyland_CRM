@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { formatCustomerName } from '../lib/formatName';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -309,7 +310,7 @@ export const CustomerList = () => {
                                                 to={`/kund/${customer.id}`}
                                                 className="hover:text-primary hover:underline"
                                             >
-                                                {customer.name || 'Okänd'}
+                                                {formatCustomerName(customer.name, customer.email)}
                                             </Link>
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">
