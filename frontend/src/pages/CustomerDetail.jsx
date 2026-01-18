@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin } from 'lucide-react';
+import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin, Wrench } from 'lucide-react';
 
 export const CustomerDetail = () => {
   const { id } = useParams();
@@ -18,6 +18,7 @@ export const CustomerDetail = () => {
   const [customer, setCustomer] = useState(null);
   const [boats, setBoats] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -66,6 +67,16 @@ export const CustomerDetail = () => {
 
       if (leadsError) throw leadsError;
       setLeads(leadsData || []);
+
+      // Fetch jobs
+      const { data: jobsData, error: jobsError } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('customer_id', id)
+        .order('created_at', { ascending: false });
+
+      if (jobsError) throw jobsError;
+      setJobs(jobsData || []);
 
     } catch (err) {
       console.error('Error fetching customer details:', err);
@@ -391,6 +402,61 @@ export const CustomerDetail = () => {
                     {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
                   </div>
                 </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Jobb */}
+        <Card>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <Wrench className="h-4 w-4" />
+              Jobb
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {jobs.length === 0 ? (
+              <p className="text-muted-foreground text-center py-2 text-sm">Inga jobb</p>
+            ) : (
+              jobs.map((job) => (
+                <Link
+                  key={job.id}
+                  to={`/jobb/${job.id}`}
+                  className="flex justify-between items-start gap-2 border-b last:border-0 pb-3 last:pb-0 hover:bg-muted/50 -mx-4 px-4 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm sm:text-base truncate">
+                      {job.title}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {job.created_at ? format(new Date(job.created_at), 'd MMM yyyy', { locale: sv }) : ''}
+                      {job.scheduled_date && ` • Inbokad ${format(new Date(job.scheduled_date), 'd MMM', { locale: sv })}`}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 items-end shrink-0">
+                    {job.status && (
+                      <Badge variant="outline" className="text-xs">
+                        {job.status === 'pending' && 'Väntande'}
+                        {job.status === 'scheduled' && 'Inbokad'}
+                        {job.status === 'in_progress' && 'Pågående'}
+                        {job.status === 'completed' && 'Klar'}
+                        {job.status === 'invoiced' && 'Fakturerad'}
+                        {job.status === 'cancelled' && 'Avbruten'}
+                      </Badge>
+                    )}
+                    {job.job_type && (
+                      <Badge variant="secondary" className="text-xs">
+                        {job.job_type === 'service' && 'Service'}
+                        {job.job_type === 'repair' && 'Reparation'}
+                        {job.job_type === 'installation' && 'Installation'}
+                        {job.job_type === 'inspection' && 'Besiktning'}
+                        {job.job_type === 'winterization' && 'Förvintring'}
+                        {job.job_type === 'launch' && 'Sjösättning'}
+                      </Badge>
+                    )}
+                  </div>
+                </Link>
               ))
             )}
           </CardContent>

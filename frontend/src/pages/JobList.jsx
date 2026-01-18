@@ -19,7 +19,8 @@ import {
     ChevronRight,
     Plus,
     Calendar,
-    Wrench
+    Wrench,
+    User
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -265,8 +266,8 @@ export const JobList = () => {
                 </CardContent>
             </Card>
 
-            {/* Jobs Table */}
-            <Card>
+            {/* Desktop Jobs Table */}
+            <Card className="hidden md:block">
                 <CardContent className="p-0">
                     {filteredAndSorted.length === 0 ? (
                         <div className="p-8 text-center">
@@ -394,6 +395,75 @@ export const JobList = () => {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Mobile Jobs Cards */}
+            <div className="md:hidden space-y-3">
+                {filteredAndSorted.length === 0 ? (
+                    <Card>
+                        <CardContent className="py-8">
+                            <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                            <p className="text-center text-muted-foreground">
+                                {searchQuery || statusFilter !== 'all' ? 'Inga jobb matchade sökningen' : 'Inga jobb än'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    filteredAndSorted.map((job) => (
+                        <Link key={job.id} to={`/jobb/${job.id}`}>
+                            <Card className="hover:shadow-md transition-shadow">
+                                <CardContent className="p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-semibold text-base mb-2">
+                                                {job.title}
+                                            </div>
+
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Badge className={STATUS_COLORS[job.status] || 'bg-gray-100 text-gray-800'}>
+                                                    {STATUS_LABELS[job.status] || job.status}
+                                                </Badge>
+                                                {job.job_type && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {JOB_TYPE_LABELS[job.job_type] || job.job_type}
+                                                    </Badge>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-1.5 text-sm">
+                                                {job.customer && (
+                                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                        <User className="h-3.5 w-3.5 shrink-0" />
+                                                        <span className="truncate">{formatCustomerName(job.customer.name)}</span>
+                                                    </div>
+                                                )}
+                                                {job.boat && (
+                                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                        <Wrench className="h-3.5 w-3.5 shrink-0" />
+                                                        <span className="truncate">
+                                                            {job.boat.make} {job.boat.model}
+                                                            {job.boat.year && ` (${job.boat.year})`}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {job.scheduled_date && (
+                                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                                        <span>
+                                                            {format(new Date(job.scheduled_date), 'dd MMM', { locale: sv })}
+                                                            {job.scheduled_time && ` kl ${job.scheduled_time}`}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    ))
+                )}
+            </div>
         </div>
     );
 };

@@ -197,6 +197,39 @@ export const CustomerList = () => {
         }
     };
 
+    const handleDeleteSingle = async (customerId, customerName) => {
+        const confirmMessage = `Är du säker på att du vill ta bort ${customerName}? Detta tar även bort alla meddelanden kopplade till denna kund.`;
+
+        if (!window.confirm(confirmMessage)) return;
+
+        setDeleting(true);
+        try {
+            // Delete messages first (foreign key constraint)
+            const { error: messagesError } = await supabase
+                .from('messages')
+                .delete()
+                .eq('customer_id', customerId);
+
+            if (messagesError) throw messagesError;
+
+            // Delete customer
+            const { error: customerError } = await supabase
+                .from('customers')
+                .delete()
+                .eq('id', customerId);
+
+            if (customerError) throw customerError;
+
+            // Update local state
+            setCustomers(prev => prev.filter(c => c.id !== customerId));
+        } catch (err) {
+            console.error('Error deleting customer:', err);
+            alert('Kunde inte ta bort kund. Försök igen.');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const handleAddCustomer = async () => {
         if (!newCustomer.name.trim()) {
             alert('Namn krävs');
@@ -522,27 +555,12 @@ export const CustomerList = () => {
                     </Card>
                 ) : (
                     filteredAndSorted.map((customer) => (
-                        <Card
-                            key={customer.id}
-                            className={`hover:shadow-md transition-shadow ${selectedIds.has(customer.id) ? 'ring-2 ring-primary' : ''}`}
-                        >
+                        <Card key={customer.id} className="hover:shadow-md transition-shadow">
                             <CardContent className="p-4">
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className="shrink-0"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                        }}
-                                    >
-                                        <Checkbox
-                                            checked={selectedIds.has(customer.id)}
-                                            onCheckedChange={() => toggleSelect(customer.id)}
-                                        />
-                                    </div>
+                                <div className="flex items-start gap-3">
                                     <Link
                                         to={`/kund/${customer.id}`}
-                                        className="flex items-center justify-between gap-3 min-w-0 flex-1"
+                                        className="flex items-center gap-3 min-w-0 flex-1"
                                     >
                                         <div className="min-w-0 flex-1">
                                             <div className="font-semibold truncate">
@@ -578,6 +596,19 @@ export const CustomerList = () => {
                                         </div>
                                         <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                                     </Link>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleDeleteSingle(customer.id, formatCustomerName(customer.name, customer.email));
+                                        }}
+                                        disabled={deleting}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>
