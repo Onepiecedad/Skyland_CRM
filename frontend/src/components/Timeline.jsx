@@ -13,6 +13,30 @@ const decodeHTML = (html) => {
     return txt.value;
 };
 
+// Utility to fix mojibake (incorrectly decoded UTF-8 Swedish characters)
+const fixSwedishEncoding = (text) => {
+    if (!text) return '';
+
+    // Common UTF-8 mojibake patterns for Swedish characters
+    const replacements = {
+        'Ã¥': 'å', 'Ã¤': 'ä', 'Ã¶': 'ö',
+        'Ã…': 'Å', 'Ã„': 'Ä', 'Ã–': 'Ö',
+        'Ã©': 'é', 'Ã¨': 'è', 'Ã': 'à',
+        'â€™': "'", 'â€œ': '"', 'â€': '"',
+        'â€"': '–', 'â€"': '—',
+        'Â': '', // Non-breaking space artifacts
+        'å€¦': 'å', 'å€¡': 'ä', 'å€': 'ö',
+        'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú',
+    };
+
+    let fixed = text;
+    for (const [wrong, correct] of Object.entries(replacements)) {
+        fixed = fixed.replace(new RegExp(wrong, 'g'), correct);
+    }
+
+    return fixed;
+};
+
 /**
  * Timeline component that fetches and displays both emails (from messages)
  * and form submissions (from inbox via leads) for a customer.
@@ -78,16 +102,17 @@ export const Timeline = ({ customerId }) => {
                     const rawFullContent = email.body_full || email.content || email.body_preview || email.body || '';
                     const rawPreviewContent = email.body_preview || email.content || email.body || email.body_full || '';
 
-                    // Decode HTML entities
-                    const fullContent = decodeHTML(rawFullContent);
-                    const previewContent = decodeHTML(rawPreviewContent);
+                    // Decode HTML entities and fix Swedish encoding
+                    const fullContent = fixSwedishEncoding(decodeHTML(rawFullContent));
+                    const previewContent = fixSwedishEncoding(decodeHTML(rawPreviewContent));
 
-                    const fromLabel = email.from_name || email.from_address || email.from_email || 'Okänd avsändare';
+                    const fromLabel = fixSwedishEncoding(email.from_name || email.from_address || email.from_email || 'Okänd avsändare');
+                    const subject = fixSwedishEncoding(email.subject || 'Inget ämne');
 
                     return {
                         id: email.id,
                         type: 'email',
-                        title: email.subject || 'Inget ämne',
+                        title: subject,
                         from_label: fromLabel,
                         preview: previewContent.length > 300
                             ? previewContent.substring(0, 300)
@@ -100,12 +125,13 @@ export const Timeline = ({ customerId }) => {
                 });
 
                 const formItems = (formsData || []).map(form => {
-                    const decodedMessage = decodeHTML(form.message || '');
+                    const decodedMessage = fixSwedishEncoding(decodeHTML(form.message || ''));
+                    const fromLabel = fixSwedishEncoding(form.name || form.email || 'Okänd avsändare');
                     return {
                         id: form.id,
                         type: 'form',
                         title: 'Formulär',
-                        from_label: form.name || form.email || 'Okänd avsändare',
+                        from_label: fromLabel,
                         preview: decodedMessage
                             ? (decodedMessage.length > 160 ? decodedMessage.substring(0, 160) + '...' : decodedMessage)
                             : '',

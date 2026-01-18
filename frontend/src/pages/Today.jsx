@@ -17,6 +17,7 @@ export const Today = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+    const [isMessagesExpanded, setIsMessagesExpanded] = useState(false);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -335,20 +336,38 @@ export const Today = () => {
 
                 {/* Senaste meddelanden */}
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 sm:pb-4">
+                    <CardHeader
+                        className="flex flex-row items-center justify-between pb-2 sm:pb-4 md:cursor-default cursor-pointer"
+                        onClick={() => setIsMessagesExpanded(!isMessagesExpanded)}
+                    >
                         <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                             <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
-                            Senaste meddelanden
+                            <div className="flex items-center gap-2">
+                                <span>Senaste meddelanden</span>
+                                {!isMessagesExpanded && messages.length > 0 && (
+                                    <span className="md:hidden text-xs text-muted-foreground font-normal">
+                                        ({messages.length})
+                                    </span>
+                                )}
+                            </div>
+                            <div className="md:hidden">
+                                {isMessagesExpanded ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                )}
+                            </div>
                         </CardTitle>
                         <Link
                             to="/meddelanden"
                             className="flex items-center gap-1 text-xs sm:text-sm text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
                         >
                             Visa alla
                             <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Link>
                     </CardHeader>
-                    <CardContent className="space-y-2 sm:space-y-3">
+                    <CardContent className={`space-y-2 sm:space-y-3 ${isMessagesExpanded ? 'block' : 'hidden'} md:block`}>
                         {messages.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4 text-sm">Inga meddelanden</p>
                         ) : (

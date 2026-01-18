@@ -29,6 +29,30 @@ const decodeHTML = (html) => {
     return txt.value;
 };
 
+// Utility to fix mojibake (incorrectly decoded UTF-8 Swedish characters)
+const fixSwedishEncoding = (text) => {
+    if (!text) return '';
+
+    // Common UTF-8 mojibake patterns for Swedish characters
+    const replacements = {
+        'Ã¥': 'å', 'Ã¤': 'ä', 'Ã¶': 'ö',
+        'Ã…': 'Å', 'Ã„': 'Ä', 'Ã–': 'Ö',
+        'Ã©': 'é', 'Ã¨': 'è', 'Ã': 'à',
+        'â€™': "'", 'â€œ': '"', 'â€': '"',
+        'â€"': '–', 'â€"': '—',
+        'Â': '', // Non-breaking space artifacts
+        'å€¦': 'å', 'å€¡': 'ä', 'å€': 'ö',
+        'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú',
+    };
+
+    let fixed = text;
+    for (const [wrong, correct] of Object.entries(replacements)) {
+        fixed = fixed.replace(new RegExp(wrong, 'g'), correct);
+    }
+
+    return fixed;
+};
+
 
 export const Messages = () => {
     const [messages, setMessages] = useState([]);
@@ -200,7 +224,9 @@ export const Messages = () => {
 
                                 // Get the full content (prioritize body_full over body_preview) and decode HTML entities
                                 const rawContent = message.body_full || message.body_preview || '';
-                                const fullContent = decodeHTML(rawContent);
+                                const fullContent = fixSwedishEncoding(decodeHTML(rawContent));
+                                const subject = fixSwedishEncoding(message.subject || 'Inget ämne');
+                                const fromName = fixSwedishEncoding(message.from_name || message.from_address || 'Okänd');
 
                                 // Determine if we should show expand button
                                 const hasMore = fullContent.length > 300;
@@ -238,7 +264,7 @@ export const Messages = () => {
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                 <span className="font-medium text-sm sm:text-base">
-                                                                    {message.subject || 'Inget ämne'}
+                                                                    {subject}
                                                                 </span>
                                                                 {message.direction === 'outbound' && (
                                                                     <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded shrink-0">
@@ -264,7 +290,7 @@ export const Messages = () => {
                                                     <div className="flex items-center gap-1.5 text-muted-foreground">
                                                         <User className="h-3 w-3 shrink-0" />
                                                         <span className="truncate">
-                                                            {message.from_name || message.from_email || 'Okänd'}
+                                                            {fromName}
                                                         </span>
                                                     </div>
                                                     {message.customers && (
