@@ -5,9 +5,11 @@ import { Timeline } from '../components/Timeline';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Pencil, Save, X } from 'lucide-react';
 
 export const CustomerDetail = () => {
   const { id } = useParams();
@@ -15,9 +17,13 @@ export const CustomerDetail = () => {
   const [customer, setCustomer] = useState(null);
   const [boats, setBoats] = useState([]);
   const [leads, setLeads] = useState([]);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -32,7 +38,6 @@ export const CustomerDetail = () => {
 
       if (customerError) {
         if (customerError.code === 'PGRST116') {
-          // No rows returned - customer not found
           setCustomer(null);
           setLoading(false);
           return;
@@ -40,6 +45,7 @@ export const CustomerDetail = () => {
         throw customerError;
       }
       setCustomer(customerData);
+      setEditForm(customerData);
 
       // Fetch boats
       const { data: boatsData, error: boatsError } = await supabase
@@ -50,7 +56,7 @@ export const CustomerDetail = () => {
       if (boatsError) throw boatsError;
       setBoats(boatsData || []);
 
-      // Fetch leads (ärenden)
+      // Fetch leads
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
@@ -59,7 +65,6 @@ export const CustomerDetail = () => {
 
       if (leadsError) throw leadsError;
       setLeads(leadsData || []);
-
 
     } catch (err) {
       console.error('Error fetching customer details:', err);
@@ -74,6 +79,43 @@ export const CustomerDetail = () => {
       fetchData();
     }
   }, [id]);
+
+  const handleEditChange = (field, value) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({
+          name: editForm.name,
+          email: editForm.email,
+          phone: editForm.phone,
+          address: editForm.address,
+          postal_code: editForm.postal_code,
+          city: editForm.city,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      setCustomer(editForm);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error saving customer:', err);
+      alert('Kunde inte spara ändringar. Försök igen.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditForm(customer);
+    setIsEditing(false);
+  };
 
   if (loading) {
     return (
@@ -132,33 +174,126 @@ export const CustomerDetail = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{customer.name || 'Okänd kund'}</h1>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          Tillbaka
-        </Button>
+        <div className="flex gap-2">
+          {!isEditing && (
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Redigera
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            Tillbaka
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Kontaktinfo */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Kontakt</CardTitle>
+            {isEditing && (
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSave} disabled={saving}>
+                  {saving ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-1" />
+                      Spara
+                    </>
+                  )}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleCancel}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div>
-              <span className="text-sm font-medium text-muted-foreground block">Email</span>
-              <span>{customer.email || '-'}</span>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-muted-foreground block">Telefon</span>
-              <span>{customer.phone || '-'}</span>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-muted-foreground block">Adress</span>
-              <span>{customer.address || '-'}</span>
-              {(customer.postal_code || customer.city) && (
-                <span className="block">{customer.postal_code} {customer.city}</span>
-              )}
-            </div>
+          <CardContent className="space-y-4">
+            {isEditing ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Namn</Label>
+                  <Input
+                    id="name"
+                    value={editForm.name || ''}
+                    onChange={(e) => handleEditChange('name', e.target.value)}
+                    placeholder="Kundnamn"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={editForm.email || ''}
+                    onChange={(e) => handleEditChange('email', e.target.value)}
+                    placeholder="email@exempel.se"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefon</Label>
+                  <Input
+                    id="phone"
+                    value={editForm.phone || ''}
+                    onChange={(e) => handleEditChange('phone', e.target.value)}
+                    placeholder="07X-XXX XX XX"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Adress</Label>
+                  <Input
+                    id="address"
+                    value={editForm.address || ''}
+                    onChange={(e) => handleEditChange('address', e.target.value)}
+                    placeholder="Gatuadress"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="postal_code">Postnummer</Label>
+                    <Input
+                      id="postal_code"
+                      value={editForm.postal_code || ''}
+                      onChange={(e) => handleEditChange('postal_code', e.target.value)}
+                      placeholder="123 45"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Ort</Label>
+                    <Input
+                      id="city"
+                      value={editForm.city || ''}
+                      onChange={(e) => handleEditChange('city', e.target.value)}
+                      placeholder="Stad"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground block">Namn</span>
+                  <span>{customer.name || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground block">Email</span>
+                  <span>{customer.email || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground block">Telefon</span>
+                  <span>{customer.phone || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground block">Adress</span>
+                  <span>{customer.address || '-'}</span>
+                  {(customer.postal_code || customer.city) && (
+                    <span className="block">{customer.postal_code} {customer.city}</span>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
