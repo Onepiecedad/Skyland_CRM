@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Timeline } from '../components/Timeline';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export const CustomerDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
   const [boats, setBoats] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -93,8 +94,8 @@ export const CustomerDetail = () => {
               <AlertCircle className="h-10 w-10 text-destructive" />
               <p className="text-muted-foreground">{error}</p>
               <div className="flex gap-2">
-                <Button variant="outline" asChild>
-                  <Link to="/kunder">Tillbaka</Link>
+                <Button variant="outline" onClick={() => navigate(-1)}>
+                  Tillbaka
                 </Button>
                 <Button onClick={fetchData}>
                   <RefreshCw className="h-4 w-4 mr-2" />
@@ -131,8 +132,8 @@ export const CustomerDetail = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{customer.name || 'Okänd kund'}</h1>
-        <Button variant="outline" asChild>
-          <Link to="/kunder">Tillbaka</Link>
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          Tillbaka
         </Button>
       </div>
 
