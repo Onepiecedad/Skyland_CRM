@@ -7,6 +7,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import {
@@ -19,7 +21,8 @@ import {
     Trash2,
     Mail,
     ChevronRight,
-    Phone
+    Phone,
+    Plus
 } from 'lucide-react';
 
 export const CustomerList = () => {
@@ -31,6 +34,18 @@ export const CustomerList = () => {
     const [sortDirection, setSortDirection] = useState('asc');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [deleting, setDeleting] = useState(false);
+
+    // Add customer state
+    const [showAddDialog, setShowAddDialog] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [newCustomer, setNewCustomer] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        postal_code: '',
+        city: ''
+    });
 
     const fetchCustomers = async () => {
         setLoading(true);
@@ -182,6 +197,51 @@ export const CustomerList = () => {
         }
     };
 
+    const handleAddCustomer = async () => {
+        if (!newCustomer.name.trim()) {
+            alert('Namn krävs');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const { data, error: insertError } = await supabase
+                .from('customers')
+                .insert([{
+                    name: newCustomer.name.trim(),
+                    email: newCustomer.email.trim() || null,
+                    phone: newCustomer.phone.trim() || null,
+                    address: newCustomer.address.trim() || null,
+                    postal_code: newCustomer.postal_code.trim() || null,
+                    city: newCustomer.city.trim() || null,
+                    status: 'active'
+                }])
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+
+            // Add to local state
+            setCustomers(prev => [{...data, message_count: 0}, ...prev]);
+
+            // Reset form and close dialog
+            setNewCustomer({
+                name: '',
+                email: '',
+                phone: '',
+                address: '',
+                postal_code: '',
+                city: ''
+            });
+            setShowAddDialog(false);
+        } catch (err) {
+            console.error('Error adding customer:', err);
+            alert('Kunde inte lägga till kund. Försök igen.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const SortableHeader = ({ field, children, className = '' }) => (
         <TableHead
             className={`cursor-pointer hover:bg-muted/50 select-none ${className}`}
@@ -232,11 +292,108 @@ export const CustomerList = () => {
     return (
         <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Kunder</h1>
-                <div className="text-sm text-muted-foreground">
-                    {filteredAndSorted.length} av {customers.length} kunder
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Kunder</h1>
+                    <div className="text-sm text-muted-foreground mt-1">
+                        {filteredAndSorted.length} av {customers.length} kunder
+                    </div>
                 </div>
+                <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Lägg till kund
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                            <DialogTitle>Lägg till ny kund</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div>
+                                <Label htmlFor="name">Namn *</Label>
+                                <Input
+                                    id="name"
+                                    value={newCustomer.name}
+                                    onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                                    placeholder="Förnamn Efternamn"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={newCustomer.email}
+                                    onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                                    placeholder="namn@example.com"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="phone">Telefon</Label>
+                                <Input
+                                    id="phone"
+                                    type="tel"
+                                    value={newCustomer.phone}
+                                    onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                                    placeholder="070-123 45 67"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="address">Adress</Label>
+                                <Input
+                                    id="address"
+                                    value={newCustomer.address}
+                                    onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                                    placeholder="Gatunamn 123"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="postal_code">Postnummer</Label>
+                                    <Input
+                                        id="postal_code"
+                                        value={newCustomer.postal_code}
+                                        onChange={(e) => setNewCustomer({...newCustomer, postal_code: e.target.value})}
+                                        placeholder="123 45"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="city">Ort</Label>
+                                    <Input
+                                        id="city"
+                                        value={newCustomer.city}
+                                        onChange={(e) => setNewCustomer({...newCustomer, city: e.target.value})}
+                                        placeholder="Stockholm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowAddDialog(false)}
+                                disabled={saving}
+                            >
+                                Avbryt
+                            </Button>
+                            <Button onClick={handleAddCustomer} disabled={saving}>
+                                {saving ? (
+                                    <>
+                                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                        Sparar...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Lägg till
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             {/* Search and actions bar */}
@@ -365,66 +522,65 @@ export const CustomerList = () => {
                     </Card>
                 ) : (
                     filteredAndSorted.map((customer) => (
-                        <Link
+                        <Card
                             key={customer.id}
-                            to={`/kund/${customer.id}`}
-                            className="block"
+                            className={`hover:shadow-md transition-shadow ${selectedIds.has(customer.id) ? 'ring-2 ring-primary' : ''}`}
                         >
-                            <Card className={`hover:shadow-md transition-shadow ${selectedIds.has(customer.id) ? 'ring-2 ring-primary' : ''}`}>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                                            <div
-                                                className="mt-1 shrink-0"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    toggleSelect(customer.id);
-                                                }}
-                                            >
-                                                <Checkbox
-                                                    checked={selectedIds.has(customer.id)}
-                                                    onCheckedChange={() => toggleSelect(customer.id)}
-                                                />
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="shrink-0"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                        }}
+                                    >
+                                        <Checkbox
+                                            checked={selectedIds.has(customer.id)}
+                                            onCheckedChange={() => toggleSelect(customer.id)}
+                                        />
+                                    </div>
+                                    <Link
+                                        to={`/kund/${customer.id}`}
+                                        className="flex items-center justify-between gap-3 min-w-0 flex-1"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-semibold truncate">
+                                                {formatCustomerName(customer.name, customer.email)}
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="font-semibold truncate">
-                                                    {formatCustomerName(customer.name, customer.email)}
-                                                </div>
-                                                <div className="flex flex-col gap-1 mt-1">
-                                                    {customer.email && (
-                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                            <Mail className="h-3.5 w-3.5 shrink-0" />
-                                                            <span className="truncate">{customer.email}</span>
-                                                        </div>
-                                                    )}
-                                                    {customer.phone && (
-                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                            <Phone className="h-3.5 w-3.5 shrink-0" />
-                                                            <span>{customer.phone}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                                    {customer.message_count > 0 && (
-                                                        <span className="flex items-center gap-1">
-                                                            <Mail className="h-3 w-3" />
-                                                            {customer.message_count} meddelanden
-                                                        </span>
-                                                    )}
-                                                    {customer.created_at && (
-                                                        <span>
-                                                            Skapad {format(new Date(customer.created_at), 'd MMM', { locale: sv })}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                {customer.email && (
+                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                                                        <span className="truncate">{customer.email}</span>
+                                                    </div>
+                                                )}
+                                                {customer.phone && (
+                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                                                        <span>{customer.phone}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                                {customer.message_count > 0 && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Mail className="h-3 w-3" />
+                                                        {customer.message_count} meddelanden
+                                                    </span>
+                                                )}
+                                                {customer.created_at && (
+                                                    <span>
+                                                        Skapad {format(new Date(customer.created_at), 'd MMM', { locale: sv })}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
+                                    </Link>
+                                </div>
+                            </CardContent>
+                        </Card>
                     ))
                 )}
             </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
@@ -7,6 +7,7 @@ import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Mail,
     ArrowUpDown,
@@ -16,7 +17,8 @@ import {
     RefreshCw,
     ChevronDown,
     ChevronUp,
-    ArrowRight
+    ArrowRight,
+    Search
 } from 'lucide-react';
 
 
@@ -27,6 +29,7 @@ export const Messages = () => {
     const [sortField, setSortField] = useState('received_at');
     const [sortDirection, setSortDirection] = useState('desc');
     const [expandedIds, setExpandedIds] = useState(new Set());
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchMessages();
@@ -90,6 +93,21 @@ export const Messages = () => {
         });
     };
 
+    // Filter messages based on search query
+    const filteredMessages = useMemo(() => {
+        if (!searchQuery.trim()) return messages;
+
+        const query = searchQuery.toLowerCase();
+        return messages.filter(msg =>
+            (msg.subject || '').toLowerCase().includes(query) ||
+            (msg.from_name || '').toLowerCase().includes(query) ||
+            (msg.from_email || '').toLowerCase().includes(query) ||
+            (msg.body_preview || '').toLowerCase().includes(query) ||
+            (msg.body_full || '').toLowerCase().includes(query) ||
+            (msg.customers?.name || '').toLowerCase().includes(query)
+        );
+    }, [messages, searchQuery]);
+
     const SortButton = ({ field, label, shortLabel }) => (
         <Button
             variant={sortField === field ? "default" : "outline"}
@@ -114,8 +132,20 @@ export const Messages = () => {
                     <div className="flex items-center justify-between">
                         <h1 className="text-xl sm:text-2xl font-bold">Meddelanden</h1>
                         <div className="text-xs sm:text-sm text-muted-foreground">
-                            {messages.length} st
+                            {filteredMessages.length} av {messages.length} st
                         </div>
+                    </div>
+
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Sök på ämne, avsändare, kund eller innehåll..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9"
+                        />
                     </div>
 
                     {/* Sorting controls */}
@@ -147,20 +177,29 @@ export const Messages = () => {
                                 <p className="text-destructive text-center">{error}</p>
                             </CardContent>
                         </Card>
-                    ) : messages.length === 0 ? (
+                    ) : filteredMessages.length === 0 ? (
                         <Card>
                             <CardContent className="py-8">
-                                <p className="text-muted-foreground text-center">Inga meddelanden</p>
+                                <p className="text-muted-foreground text-center">
+                                    {searchQuery ? 'Inga meddelanden matchade sökningen' : 'Inga meddelanden'}
+                                </p>
                             </CardContent>
                         </Card>
                     ) : (
                         <div className="space-y-2 sm:space-y-3">
-                            {messages.map((message) => {
+                            {filteredMessages.map((message) => {
                                 const isExpanded = expandedIds.has(message.id);
-                                const hasMore = message.body_full && message.body_full.length > 200;
+
+                                // Get the full content (prioritize body_full over body_preview)
+                                const fullContent = message.body_full || message.body_preview || '';
+
+                                // Determine if we should show expand button
+                                const hasMore = fullContent.length > 300;
+
+                                // Display content based on expansion state
                                 const displayContent = isExpanded
-                                    ? message.body_full
-                                    : (message.body_preview || message.body_full || '').substring(0, 200);
+                                    ? fullContent
+                                    : fullContent.substring(0, 300);
 
                                 let formattedDate = 'Okänt datum';
                                 let shortDate = '';
@@ -180,60 +219,66 @@ export const Messages = () => {
                                 }
 
                                 return (
-                                    <Card key={message.id} className="hover:shadow-md transition-shadow">
-                                        <CardContent className="p-3 sm:py-4 sm:px-5">
-                                            <div className="flex flex-col gap-2">
+                                    <Card key={message.id} className="hover:shadow-sm transition-shadow">
+                                        <CardContent className="p-3 sm:p-4">
+                                            <div className="flex flex-col gap-3">
                                                 {/* Header row */}
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                        <Mail className="h-4 w-4 text-muted-foreground shrink-0 hidden sm:block" />
-                                                        <span className="font-medium text-sm sm:text-base truncate">
-                                                            {message.subject || 'Inget ämne'}
-                                                        </span>
-                                                        {message.direction === 'outbound' && (
-                                                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">
-                                                                Skickat
-                                                            </span>
-                                                        )}
-                                                        {message.direction === 'inbound' && (
-                                                            <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded shrink-0">
-                                                                In
-                                                            </span>
-                                                        )}
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                                                        <Mail className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 hidden sm:block" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-medium text-sm sm:text-base">
+                                                                    {message.subject || 'Inget ämne'}
+                                                                </span>
+                                                                {message.direction === 'outbound' && (
+                                                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded shrink-0">
+                                                                        Skickat
+                                                                    </span>
+                                                                )}
+                                                                {message.direction === 'inbound' && (
+                                                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded shrink-0">
+                                                                        Inkommande
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-xs text-muted-foreground shrink-0">
+                                                    <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
                                                         <span className="hidden sm:inline">{formattedDate}</span>
                                                         <span className="sm:hidden">{shortDate}</span>
                                                     </span>
                                                 </div>
 
                                                 {/* From/To info */}
-                                                <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
-                                                    <div className="flex items-center gap-1 text-muted-foreground">
-                                                        <User className="h-3 w-3" />
-                                                        <span className="truncate max-w-[150px] sm:max-w-none">
+                                                <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                        <User className="h-3 w-3 shrink-0" />
+                                                        <span className="truncate">
                                                             {message.from_name || message.from_email || 'Okänd'}
                                                         </span>
                                                     </div>
                                                     {message.customers && (
-                                                        <Link
-                                                            to={`/kund/${message.customers.id}`}
-                                                            className="text-primary hover:underline flex items-center gap-1"
-                                                        >
-                                                            <ArrowRight className="h-3 w-3" />
-                                                            <span className="truncate max-w-[150px] sm:max-w-none">
+                                                        <>
+                                                            <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                                            <Link
+                                                                to={`/kund/${message.customers.id}`}
+                                                                className="text-primary hover:underline truncate"
+                                                            >
                                                                 {formatCustomerName(message.customers.name, message.customers.email)}
-                                                            </span>
-                                                        </Link>
+                                                            </Link>
+                                                        </>
                                                     )}
                                                 </div>
 
                                                 {/* Body preview */}
                                                 {displayContent && (
-                                                    <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-line mt-1 line-clamp-3">
-                                                        {displayContent}
-                                                        {!isExpanded && hasMore && '...'}
-                                                    </p>
+                                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                                        <p className="whitespace-pre-wrap break-words">
+                                                            {displayContent}
+                                                            {!isExpanded && hasMore && '...'}
+                                                        </p>
+                                                    </div>
                                                 )}
 
                                                 {/* Expand button */}

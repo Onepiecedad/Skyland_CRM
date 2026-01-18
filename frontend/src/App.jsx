@@ -9,6 +9,7 @@ import { CustomerList } from './pages/CustomerList';
 import { CustomerDetail } from './pages/CustomerDetail';
 import { JobList } from './pages/JobList';
 import { JobDetail } from './pages/JobDetail';
+import { JobCreate } from './pages/JobCreate';
 import { Header } from './components/Header';
 
 function App() {
@@ -67,6 +68,18 @@ function App() {
                                 <div className="min-h-screen bg-background flex flex-col">
                                     <Header />
                                     <JobList />
+                                </div>
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/jobb/nytt"
+                        element={
+                            <ProtectedRoute>
+                                <div className="min-h-screen bg-background flex flex-col">
+                                    <Header />
+                                    <JobCreate />
                                 </div>
                             </ProtectedRoute>
                         }

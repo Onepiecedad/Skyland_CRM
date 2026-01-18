@@ -13,7 +13,7 @@ export const Today = () => {
     const [leads, setLeads] = useState([]);
     const [jobs, setJobs] = useState([]);
     const [messages, setMessages] = useState([]);
-    const [stats, setStats] = useState({ leadsCount: 0, customersCount: 0 });
+    const [stats, setStats] = useState({ leadsCount: 0, customersCount: 0, jobsCount: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -84,9 +84,16 @@ export const Today = () => {
 
             if (customersCountError) throw customersCountError;
 
+            const { count: jobsCount, error: jobsCountError } = await supabase
+                .from('jobs')
+                .select('*', { count: 'exact', head: true });
+
+            if (jobsCountError) throw jobsCountError;
+
             setStats({
                 leadsCount: leadsCount || 0,
-                customersCount: customersCount || 0
+                customersCount: customersCount || 0,
+                jobsCount: jobsCount || 0
             });
         } catch (err) {
             console.error('Error fetching dashboard data:', err);
@@ -138,32 +145,36 @@ export const Today = () => {
             <main className="flex-1 container mx-auto px-4 py-4 sm:py-8 space-y-4 sm:space-y-8">
                 {/* Snabbstatistik */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50">
-                        <CardContent className="p-3 sm:p-6">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="p-2 bg-blue-500/10 rounded-lg">
-                                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                    <Link to="/jobb">
+                        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50 hover:shadow-md transition-shadow cursor-pointer">
+                            <CardContent className="p-3 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                                        <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs sm:text-sm text-muted-foreground">Jobb</p>
+                                        <p className="text-xl sm:text-3xl font-bold">{stats.jobsCount}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-xs sm:text-sm text-muted-foreground">Ärenden</p>
-                                    <p className="text-xl sm:text-3xl font-bold">{stats.leadsCount}</p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                    <Link to="/kunder">
+                        <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/30 border-green-200/50 hover:shadow-md transition-shadow cursor-pointer">
+                            <CardContent className="p-3 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="p-2 bg-green-500/10 rounded-lg">
+                                        <Users className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs sm:text-sm text-muted-foreground">Kunder</p>
+                                        <p className="text-xl sm:text-3xl font-bold">{stats.customersCount}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/50 dark:to-green-900/30 border-green-200/50">
-                        <CardContent className="p-3 sm:p-6">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="p-2 bg-green-500/10 rounded-lg">
-                                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-                                </div>
-                                <div>
-                                    <p className="text-xs sm:text-sm text-muted-foreground">Kunder</p>
-                                    <p className="text-xl sm:text-3xl font-bold">{stats.customersCount}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    </Link>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
