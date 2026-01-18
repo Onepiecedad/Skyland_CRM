@@ -29,6 +29,41 @@ const decodeHTML = (html) => {
     return txt.value;
 };
 
+// Utility to decode quoted-printable encoding
+const decodeQuotedPrintable = (text) => {
+    if (!text) return '';
+
+    try {
+        // Replace =XX hex codes with actual characters
+        let decoded = text.replace(/=([0-9A-F]{2})/gi, (match, hex) => {
+            return String.fromCharCode(parseInt(hex, 16));
+        });
+
+        // Remove soft line breaks (=\r\n or =\n)
+        decoded = decoded.replace(/=\r?\n/g, '');
+
+        return decoded;
+    } catch (e) {
+        console.warn('Error decoding quoted-printable:', e);
+        return text;
+    }
+};
+
+// Utility to decode base64
+const decodeBase64 = (text) => {
+    if (!text) return '';
+
+    try {
+        // Check if it looks like base64
+        if (/^[A-Za-z0-9+/]+=*$/.test(text.trim())) {
+            return atob(text);
+        }
+        return text;
+    } catch (e) {
+        return text;
+    }
+};
+
 // Utility to fix mojibake (incorrectly decoded UTF-8 Swedish characters)
 const fixSwedishEncoding = (text) => {
     if (!text) return '';
@@ -260,11 +295,11 @@ export const Messages = () => {
                             {filteredMessages.map((message) => {
                                 const isExpanded = expandedIds.has(message.id);
 
-                                // Get the full content (prioritize body_full over body_preview) and decode HTML entities
+                                // Get the full content (prioritize body_full over body_preview) and decode in correct order
                                 const rawContent = message.body_full || message.body_preview || '';
-                                const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(rawContent)));
-                                const subject = fixSwedishEncoding(message.subject || 'Inget ämne');
-                                const fromName = fixSwedishEncoding(message.from_name || message.from_address || 'Okänd');
+                                const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawContent))));
+                                const subject = fixSwedishEncoding(decodeQuotedPrintable(message.subject || 'Inget ämne'));
+                                const fromName = fixSwedishEncoding(decodeQuotedPrintable(message.from_name || message.from_address || 'Okänd'));
 
                                 // Determine if we should show expand button
                                 const hasMore = fullContent.length > 300;
