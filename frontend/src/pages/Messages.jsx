@@ -43,6 +43,8 @@ const fixSwedishEncoding = (text) => {
         'Â': '', // Non-breaking space artifacts
         'å€¦': 'å', 'å€¡': 'ä', 'å€': 'ö',
         'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú',
+        '☰': '', // Trigram symbols (often from encoding errors)
+        '�': '', // Replacement character
     };
 
     let fixed = text;
@@ -51,6 +53,33 @@ const fixSwedishEncoding = (text) => {
     }
 
     return fixed;
+};
+
+// Utility to clean email body text
+const cleanEmailBody = (text) => {
+    if (!text) return '';
+
+    let cleaned = text;
+
+    // Remove email headers (date/time stamps with timezone info)
+    cleaned = cleaned.replace(/^\d{1,2}\s+\w+\s+\d{4},\s+\d{2}:\d{2}\s+\w+\s+\w+,\s+skrev\s+[^:]+:/gm, '');
+
+    // Remove "Den [date] skrev [name] <email>:" patterns
+    cleaned = cleaned.replace(/^Den\s+\d{4}-\d{2}-\d{2}\s+\w+\s+\d{2}:\d{2}\s+skrev\s+[^:]+:/gm, '');
+
+    // Remove "On [date], [name] wrote:" patterns
+    cleaned = cleaned.replace(/^On\s+\w+,?\s+\w+\s+\d{1,2},?\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[AP]M,?\s+[^:]+wrote:/gm, '');
+
+    // Simplify quoted reply markers - collapse multiple levels
+    cleaned = cleaned.replace(/^(>\s*)+/gm, '> ');
+
+    // Remove multiple consecutive blank lines
+    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+
+    // Trim whitespace
+    cleaned = cleaned.trim();
+
+    return cleaned;
 };
 
 
@@ -224,7 +253,7 @@ export const Messages = () => {
 
                                 // Get the full content (prioritize body_full over body_preview) and decode HTML entities
                                 const rawContent = message.body_full || message.body_preview || '';
-                                const fullContent = fixSwedishEncoding(decodeHTML(rawContent));
+                                const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(rawContent)));
                                 const subject = fixSwedishEncoding(message.subject || 'Inget ämne');
                                 const fromName = fixSwedishEncoding(message.from_name || message.from_address || 'Okänd');
 

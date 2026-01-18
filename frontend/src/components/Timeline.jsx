@@ -27,6 +27,8 @@ const fixSwedishEncoding = (text) => {
         'Â': '', // Non-breaking space artifacts
         'å€¦': 'å', 'å€¡': 'ä', 'å€': 'ö',
         'Ã¡': 'á', 'Ã­': 'í', 'Ã³': 'ó', 'Ãº': 'ú',
+        '☰': '', // Trigram symbols (often from encoding errors)
+        '�': '', // Replacement character
     };
 
     let fixed = text;
@@ -35,6 +37,33 @@ const fixSwedishEncoding = (text) => {
     }
 
     return fixed;
+};
+
+// Utility to clean email body text
+const cleanEmailBody = (text) => {
+    if (!text) return '';
+
+    let cleaned = text;
+
+    // Remove email headers (date/time stamps with timezone info)
+    cleaned = cleaned.replace(/^\d{1,2}\s+\w+\s+\d{4},\s+\d{2}:\d{2}\s+\w+\s+\w+,\s+skrev\s+[^:]+:/gm, '');
+
+    // Remove "Den [date] skrev [name] <email>:" patterns
+    cleaned = cleaned.replace(/^Den\s+\d{4}-\d{2}-\d{2}\s+\w+\s+\d{2}:\d{2}\s+skrev\s+[^:]+:/gm, '');
+
+    // Remove "On [date], [name] wrote:" patterns
+    cleaned = cleaned.replace(/^On\s+\w+,?\s+\w+\s+\d{1,2},?\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[AP]M,?\s+[^:]+wrote:/gm, '');
+
+    // Simplify quoted reply markers - collapse multiple levels
+    cleaned = cleaned.replace(/^(>\s*)+/gm, '> ');
+
+    // Remove multiple consecutive blank lines
+    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+
+    // Trim whitespace
+    cleaned = cleaned.trim();
+
+    return cleaned;
 };
 
 /**
@@ -102,9 +131,9 @@ export const Timeline = ({ customerId }) => {
                     const rawFullContent = email.body_full || email.content || email.body_preview || email.body || '';
                     const rawPreviewContent = email.body_preview || email.content || email.body || email.body_full || '';
 
-                    // Decode HTML entities and fix Swedish encoding
-                    const fullContent = fixSwedishEncoding(decodeHTML(rawFullContent));
-                    const previewContent = fixSwedishEncoding(decodeHTML(rawPreviewContent));
+                    // Decode HTML entities, fix Swedish encoding, and clean email formatting
+                    const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(rawFullContent)));
+                    const previewContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(rawPreviewContent)));
 
                     const fromLabel = fixSwedishEncoding(email.from_name || email.from_address || email.from_email || 'Okänd avsändare');
                     const subject = fixSwedishEncoding(email.subject || 'Inget ämne');
@@ -125,7 +154,7 @@ export const Timeline = ({ customerId }) => {
                 });
 
                 const formItems = (formsData || []).map(form => {
-                    const decodedMessage = fixSwedishEncoding(decodeHTML(form.message || ''));
+                    const decodedMessage = cleanEmailBody(fixSwedishEncoding(decodeHTML(form.message || '')));
                     const fromLabel = fixSwedishEncoding(form.name || form.email || 'Okänd avsändare');
                     return {
                         id: form.id,
