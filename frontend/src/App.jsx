@@ -7,6 +7,8 @@ import { Today } from './pages/Today';
 import { Messages } from './pages/Messages';
 import { CustomerList } from './pages/CustomerList';
 import { CustomerDetail } from './pages/CustomerDetail';
+import { JobList } from './pages/JobList';
+import { JobDetail } from './pages/JobDetail';
 import { Header } from './components/Header';
 
 function App() {
@@ -53,6 +55,30 @@ function App() {
                                 <div className="min-h-screen bg-background flex flex-col">
                                     <Header />
                                     <CustomerDetail />
+                                </div>
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/jobb"
+                        element={
+                            <ProtectedRoute>
+                                <div className="min-h-screen bg-background flex flex-col">
+                                    <Header />
+                                    <JobList />
+                                </div>
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/jobb/:id"
+                        element={
+                            <ProtectedRoute>
+                                <div className="min-h-screen bg-background flex flex-col">
+                                    <Header />
+                                    <JobDetail />
                                 </div>
                             </ProtectedRoute>
                         }
