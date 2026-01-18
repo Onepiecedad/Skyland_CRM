@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
@@ -7,6 +7,7 @@ import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Mail,
     ArrowUpDown,
@@ -16,7 +17,8 @@ import {
     RefreshCw,
     ChevronDown,
     ChevronUp,
-    ArrowRight
+    ArrowRight,
+    Search
 } from 'lucide-react';
 
 
@@ -27,6 +29,7 @@ export const Messages = () => {
     const [sortField, setSortField] = useState('received_at');
     const [sortDirection, setSortDirection] = useState('desc');
     const [expandedIds, setExpandedIds] = useState(new Set());
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchMessages();
@@ -90,6 +93,21 @@ export const Messages = () => {
         });
     };
 
+    // Filter messages based on search query
+    const filteredMessages = useMemo(() => {
+        if (!searchQuery.trim()) return messages;
+
+        const query = searchQuery.toLowerCase();
+        return messages.filter(msg =>
+            (msg.subject || '').toLowerCase().includes(query) ||
+            (msg.from_name || '').toLowerCase().includes(query) ||
+            (msg.from_email || '').toLowerCase().includes(query) ||
+            (msg.body_preview || '').toLowerCase().includes(query) ||
+            (msg.body_full || '').toLowerCase().includes(query) ||
+            (msg.customers?.name || '').toLowerCase().includes(query)
+        );
+    }, [messages, searchQuery]);
+
     const SortButton = ({ field, label, shortLabel }) => (
         <Button
             variant={sortField === field ? "default" : "outline"}
@@ -114,8 +132,20 @@ export const Messages = () => {
                     <div className="flex items-center justify-between">
                         <h1 className="text-xl sm:text-2xl font-bold">Meddelanden</h1>
                         <div className="text-xs sm:text-sm text-muted-foreground">
-                            {messages.length} st
+                            {filteredMessages.length} av {messages.length} st
                         </div>
+                    </div>
+
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Sök på ämne, avsändare, kund eller innehåll..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9"
+                        />
                     </div>
 
                     {/* Sorting controls */}
@@ -147,15 +177,17 @@ export const Messages = () => {
                                 <p className="text-destructive text-center">{error}</p>
                             </CardContent>
                         </Card>
-                    ) : messages.length === 0 ? (
+                    ) : filteredMessages.length === 0 ? (
                         <Card>
                             <CardContent className="py-8">
-                                <p className="text-muted-foreground text-center">Inga meddelanden</p>
+                                <p className="text-muted-foreground text-center">
+                                    {searchQuery ? 'Inga meddelanden matchade sökningen' : 'Inga meddelanden'}
+                                </p>
                             </CardContent>
                         </Card>
                     ) : (
                         <div className="space-y-2 sm:space-y-3">
-                            {messages.map((message) => {
+                            {filteredMessages.map((message) => {
                                 const isExpanded = expandedIds.has(message.id);
 
                                 // Get the full content (prioritize body_full over body_preview)

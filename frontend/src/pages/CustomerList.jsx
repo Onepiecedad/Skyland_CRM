@@ -522,66 +522,65 @@ export const CustomerList = () => {
                     </Card>
                 ) : (
                     filteredAndSorted.map((customer) => (
-                        <Link
+                        <Card
                             key={customer.id}
-                            to={`/kund/${customer.id}`}
-                            className="block"
+                            className={`hover:shadow-md transition-shadow ${selectedIds.has(customer.id) ? 'ring-2 ring-primary' : ''}`}
                         >
-                            <Card className={`hover:shadow-md transition-shadow ${selectedIds.has(customer.id) ? 'ring-2 ring-primary' : ''}`}>
-                                <CardContent className="p-4">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                                            <div
-                                                className="mt-1 shrink-0"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    toggleSelect(customer.id);
-                                                }}
-                                            >
-                                                <Checkbox
-                                                    checked={selectedIds.has(customer.id)}
-                                                    onCheckedChange={() => toggleSelect(customer.id)}
-                                                />
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="shrink-0"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                        }}
+                                    >
+                                        <Checkbox
+                                            checked={selectedIds.has(customer.id)}
+                                            onCheckedChange={() => toggleSelect(customer.id)}
+                                        />
+                                    </div>
+                                    <Link
+                                        to={`/kund/${customer.id}`}
+                                        className="flex items-center justify-between gap-3 min-w-0 flex-1"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-semibold truncate">
+                                                {formatCustomerName(customer.name, customer.email)}
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="font-semibold truncate">
-                                                    {formatCustomerName(customer.name, customer.email)}
-                                                </div>
-                                                <div className="flex flex-col gap-1 mt-1">
-                                                    {customer.email && (
-                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                            <Mail className="h-3.5 w-3.5 shrink-0" />
-                                                            <span className="truncate">{customer.email}</span>
-                                                        </div>
-                                                    )}
-                                                    {customer.phone && (
-                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                            <Phone className="h-3.5 w-3.5 shrink-0" />
-                                                            <span>{customer.phone}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                                    {customer.message_count > 0 && (
-                                                        <span className="flex items-center gap-1">
-                                                            <Mail className="h-3 w-3" />
-                                                            {customer.message_count} meddelanden
-                                                        </span>
-                                                    )}
-                                                    {customer.created_at && (
-                                                        <span>
-                                                            Skapad {format(new Date(customer.created_at), 'd MMM', { locale: sv })}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                {customer.email && (
+                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                                                        <span className="truncate">{customer.email}</span>
+                                                    </div>
+                                                )}
+                                                {customer.phone && (
+                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                                                        <span>{customer.phone}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                                {customer.message_count > 0 && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Mail className="h-3 w-3" />
+                                                        {customer.message_count} meddelanden
+                                                    </span>
+                                                )}
+                                                {customer.created_at && (
+                                                    <span>
+                                                        Skapad {format(new Date(customer.created_at), 'd MMM', { locale: sv })}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
+                                    </Link>
+                                </div>
+                            </CardContent>
+                        </Card>
                     ))
                 )}
             </div>
