@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Home, Mail, Users, LogOut } from 'lucide-react';
+import { Menu, X, Home, Mail, Users, Wrench, LogOut } from 'lucide-react';
 
 export const Header = () => {
     const navigate = useNavigate();
@@ -16,6 +16,7 @@ export const Header = () => {
 
     const navItems = [
         { path: '/', label: 'Idag', icon: Home },
+        { path: '/jobb', label: 'Jobb', icon: Wrench },
         { path: '/meddelanden', label: 'Meddelanden', icon: Mail },
         { path: '/kunder', label: 'Kunder', icon: Users },
     ];
