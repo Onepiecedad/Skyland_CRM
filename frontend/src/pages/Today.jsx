@@ -197,7 +197,7 @@ export const Today = () => {
                                         <div className="flex items-start justify-between gap-2 w-full">
                                             <div className="min-w-0 flex-1">
                                                 <div className="font-medium text-sm sm:text-base truncate">
-                                                    {lead.name || 'Okänd'}
+                                                    {formatCustomerName(lead.name, lead.email)}
                                                 </div>
                                                 <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
                                                     {lead.ai_summary || lead.subject || 'Inget ämne'}

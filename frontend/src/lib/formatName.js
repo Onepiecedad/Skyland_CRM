@@ -7,15 +7,30 @@ export const formatCustomerName = (name, email = '') => {
     if (!name && !email) return 'Okänd';
 
     let displayName = name || '';
+    let emailAddress = email || '';
+
+    // Handle "Name <email@example.com>" format in email parameter
+    if (emailAddress.includes('<') && emailAddress.includes('>')) {
+        const match = emailAddress.match(/^([^<]+)<([^>]+)>/);
+        if (match) {
+            const extractedName = match[1].trim();
+            const extractedEmail = match[2].trim();
+            // Use extracted name if displayName is empty
+            if (!displayName && extractedName) {
+                displayName = extractedName;
+            }
+            emailAddress = extractedEmail;
+        }
+    }
 
     // If name is empty or looks like it's just an email prefix, try to extract from email
     const looksLikeEmailPrefix = !displayName ||
         displayName.includes('@') ||
         (displayName.includes('.') && !displayName.includes(' ') && displayName.length < 30);
 
-    if (looksLikeEmailPrefix && email) {
+    if (looksLikeEmailPrefix && emailAddress) {
         // Extract from email (use part before @)
-        displayName = email.split('@')[0];
+        displayName = emailAddress.split('@')[0];
     }
 
     // Remove common prefixes/suffixes
@@ -25,8 +40,8 @@ export const formatCustomerName = (name, email = '') => {
 
     if (!displayName) {
         // If still empty, use email domain or return unknown
-        if (email) {
-            const domain = email.split('@')[1];
+        if (emailAddress) {
+            const domain = emailAddress.split('@')[1];
             if (domain) {
                 return domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
             }
@@ -65,7 +80,7 @@ export const formatCustomerName = (name, email = '') => {
     // If result is just single letters with spaces, it's probably wrong
     if (/^[A-Z]( [A-Z])+$/.test(displayName)) {
         // Return original cleaned name instead
-        displayName = (name || email.split('@')[0] || 'Okänd');
+        displayName = (name || emailAddress.split('@')[0] || 'Okänd');
         displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase();
     }
 
