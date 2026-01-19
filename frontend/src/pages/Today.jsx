@@ -23,11 +23,11 @@ export const Today = () => {
         setLoading(true);
         setError(null);
         try {
-            // 1. Fetch Leads (Att svara på)
+            // 1. Fetch Leads (Att svara på) - include null ai_category (new leads) and exclude SPAM
             const { data: leadsData, error: leadsError } = await supabase
                 .from('leads')
                 .select('*')
-                .neq('ai_category', 'SPAM')
+                .or('ai_category.is.null,ai_category.neq.SPAM')
                 .order('created_at', { ascending: false })
                 .limit(10);
 
@@ -76,7 +76,7 @@ export const Today = () => {
             const { count: leadsCount, error: leadsCountError } = await supabase
                 .from('leads')
                 .select('*', { count: 'exact', head: true })
-                .neq('ai_category', 'SPAM');
+                .or('ai_category.is.null,ai_category.neq.SPAM');
 
             if (leadsCountError) throw leadsCountError;
 
