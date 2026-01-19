@@ -53,6 +53,25 @@ const decodeBase64 = (text) => {
     }
 };
 
+// Utility to aggressively clean encoding artifacts
+const cleanEncodingArtifacts = (text) => {
+    if (!text) return '';
+
+    let cleaned = text;
+
+    // Remove all Unicode block characters and replacement characters
+    cleaned = cleaned.replace(/[\u2580-\u259F\uFFFD\u25A0-\u25FF]/g, '');
+
+    // Remove sequences of special characters that indicate corruption
+    cleaned = cleaned.replace(/[▓▒░█☰■□▪▫●○◆◇◼◻⬛⬜]+/g, '');
+
+    // Fix common patterns where special chars follow letters
+    // Pattern: letter + block chars = just the letter
+    cleaned = cleaned.replace(/([a-zåäöÅÄÖ])[▓▒░█☰■□]+/gi, '$1');
+
+    return cleaned;
+};
+
 // Utility to fix mojibake (incorrectly decoded UTF-8 Swedish characters)
 const fixSwedishEncoding = (text) => {
     if (!text) return '';
@@ -181,12 +200,12 @@ export const Timeline = ({ customerId }) => {
                     const rawFullContent = email.body_full || email.content || email.body_preview || email.body || '';
                     const rawPreviewContent = email.body_preview || email.content || email.body || email.body_full || '';
 
-                    // Decode in correct order: quoted-printable -> HTML entities -> Swedish encoding -> clean formatting
-                    const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawFullContent))));
-                    const previewContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawPreviewContent))));
+                    // Decode in correct order: quoted-printable -> HTML entities -> Swedish encoding -> clean artifacts -> clean formatting
+                    const fullContent = cleanEmailBody(cleanEncodingArtifacts(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawFullContent)))));
+                    const previewContent = cleanEmailBody(cleanEncodingArtifacts(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawPreviewContent)))));
 
-                    const fromLabel = fixSwedishEncoding(decodeQuotedPrintable(email.from_name || email.from_address || email.from_email || 'Okänd avsändare'));
-                    const subject = fixSwedishEncoding(decodeQuotedPrintable(email.subject || 'Inget ämne'));
+                    const fromLabel = cleanEncodingArtifacts(fixSwedishEncoding(decodeQuotedPrintable(email.from_name || email.from_address || email.from_email || 'Okänd avsändare')));
+                    const subject = cleanEncodingArtifacts(fixSwedishEncoding(decodeQuotedPrintable(email.subject || 'Inget ämne')));
 
                     return {
                         id: email.id,
@@ -205,8 +224,8 @@ export const Timeline = ({ customerId }) => {
                 });
 
                 const formItems = (formsData || []).map(form => {
-                    const decodedMessage = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(form.message || ''))));
-                    const fromLabel = fixSwedishEncoding(decodeQuotedPrintable(form.name || form.email || 'Okänd avsändare'));
+                    const decodedMessage = cleanEmailBody(cleanEncodingArtifacts(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(form.message || '')))));
+                    const fromLabel = cleanEncodingArtifacts(fixSwedishEncoding(decodeQuotedPrintable(form.name || form.email || 'Okänd avsändare')));
                     return {
                         id: form.id,
                         type: 'form',

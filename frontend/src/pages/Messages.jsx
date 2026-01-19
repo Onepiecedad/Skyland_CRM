@@ -70,6 +70,25 @@ const decodeBase64 = (text) => {
     }
 };
 
+// Utility to aggressively clean encoding artifacts
+const cleanEncodingArtifacts = (text) => {
+    if (!text) return '';
+
+    let cleaned = text;
+
+    // Remove all Unicode block characters and replacement characters
+    cleaned = cleaned.replace(/[\u2580-\u259F\uFFFD\u25A0-\u25FF]/g, '');
+
+    // Remove sequences of special characters that indicate corruption
+    cleaned = cleaned.replace(/[▓▒░█☰■□▪▫●○◆◇◼◻⬛⬜]+/g, '');
+
+    // Fix common patterns where special chars follow letters
+    // Pattern: letter + block chars = just the letter
+    cleaned = cleaned.replace(/([a-zåäöÅÄÖ])[▓▒░█☰■□]+/gi, '$1');
+
+    return cleaned;
+};
+
 // Utility to fix mojibake (incorrectly decoded UTF-8 Swedish characters)
 const fixSwedishEncoding = (text) => {
     if (!text) return '';
@@ -396,9 +415,9 @@ export const Messages = () => {
 
                                 // Get the full content (prioritize body_full over body_preview) and decode in correct order
                                 const rawContent = message.body_full || message.body_preview || '';
-                                const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawContent))));
-                                const subject = fixSwedishEncoding(decodeQuotedPrintable(message.subject || 'Inget ämne'));
-                                const fromName = fixSwedishEncoding(decodeQuotedPrintable(message.from_name || message.from_address || 'Okänd'));
+                                const fullContent = cleanEmailBody(cleanEncodingArtifacts(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawContent)))));
+                                const subject = cleanEncodingArtifacts(fixSwedishEncoding(decodeQuotedPrintable(message.subject || 'Inget ämne')));
+                                const fromName = cleanEncodingArtifacts(fixSwedishEncoding(decodeQuotedPrintable(message.from_name || message.from_address || 'Okänd')));
 
                                 // Determine if we should show expand button
                                 const hasMore = fullContent.length > 300;
@@ -548,7 +567,7 @@ export const Messages = () => {
                         <DialogTitle className="text-base sm:text-lg">Svara på meddelande</DialogTitle>
                         {replyToMessage && (
                             <DialogDescription className="text-sm">
-                                Svar till: {fixSwedishEncoding(decodeQuotedPrintable(replyToMessage.from_name || replyToMessage.from_email || ''))}
+                                Svar till: {cleanEncodingArtifacts(fixSwedishEncoding(decodeQuotedPrintable(replyToMessage.from_name || replyToMessage.from_email || '')))}
                             </DialogDescription>
                         )}
                     </DialogHeader>
