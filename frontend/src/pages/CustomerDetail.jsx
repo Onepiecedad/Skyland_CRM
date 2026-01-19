@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin, Wrench } from 'lucide-react';
+import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin, Wrench, Trash2, StickyNote } from 'lucide-react';
 
 export const CustomerDetail = () => {
   const { id } = useParams();
@@ -26,6 +26,7 @@ export const CustomerDetail = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -108,6 +109,7 @@ export const CustomerDetail = () => {
           address: editForm.address,
           postal_code: editForm.postal_code,
           city: editForm.city,
+          notes: editForm.notes,
           updated_at: new Date().toISOString()
         })
         .eq('id', id);
@@ -127,6 +129,38 @@ export const CustomerDetail = () => {
   const handleCancel = () => {
     setEditForm(customer);
     setIsEditing(false);
+  };
+
+  const handleDelete = async () => {
+    const confirmMessage = `Är du säker på att du vill ta bort ${formatCustomerName(customer.name, customer.email)}? Detta tar även bort alla meddelanden kopplade till denna kund.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeleting(true);
+    try {
+      // Delete messages first (foreign key constraint)
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('customer_id', id);
+
+      if (messagesError) throw messagesError;
+
+      // Delete customer
+      const { error: customerError } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', id);
+
+      if (customerError) throw customerError;
+
+      // Navigate back to customer list
+      navigate('/kunder');
+    } catch (err) {
+      console.error('Error deleting customer:', err);
+      alert('Kunde inte ta bort kunden. Försök igen.');
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -201,10 +235,28 @@ export const CustomerDetail = () => {
         </div>
         <div className="flex gap-2 ml-10 sm:ml-0">
           {!isEditing && (
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-              <Pencil className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Redigera</span>
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Pencil className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Redigera</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                {deleting ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Radera</span>
+                  </>
+                )}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -316,6 +368,16 @@ export const CustomerDetail = () => {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Anteckningar</Label>
+                  <textarea
+                    id="notes"
+                    value={editForm.notes || ''}
+                    onChange={(e) => handleEditChange('notes', e.target.value)}
+                    placeholder="Egna noteringar om kunden..."
+                    className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-input bg-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
               </>
             ) : (
               <>
@@ -344,6 +406,25 @@ export const CustomerDetail = () => {
                   </div>
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Anteckningar */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <StickyNote className="h-4 w-4 text-yellow-500" />
+              Anteckningar
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {customer.notes ? (
+              <p className="text-sm whitespace-pre-wrap">{customer.notes}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                Inga anteckningar. Klicka på Redigera för att lägga till.
+              </p>
             )}
           </CardContent>
         </Card>
