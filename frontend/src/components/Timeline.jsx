@@ -563,14 +563,14 @@ const TimelineItem = ({ item, customerId, onDeleted }) => {
 
                 {/* Action buttons - only show for emails */}
                 {isEmail && (
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex flex-col sm:flex-row gap-2 mt-3">
                         <Button
                             size="sm"
                             variant="outline"
                             onClick={() => setShowReplyDialog(true)}
-                            className="text-xs h-7"
+                            className="text-xs sm:text-sm h-9 sm:h-8 w-full sm:w-auto"
                         >
-                            <Reply className="h-3 w-3 mr-1" />
+                            <Reply className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" />
                             Svara
                         </Button>
                         <Button
@@ -578,9 +578,9 @@ const TimelineItem = ({ item, customerId, onDeleted }) => {
                             variant="outline"
                             onClick={handleDelete}
                             disabled={deleting}
-                            className="text-xs h-7 text-destructive hover:text-destructive"
+                            className="text-xs sm:text-sm h-9 sm:h-8 w-full sm:w-auto text-destructive hover:text-destructive"
                         >
-                            <Trash2 className="h-3 w-3 mr-1" />
+                            <Trash2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" />
                             {deleting ? 'Raderar...' : 'Radera'}
                         </Button>
                     </div>
@@ -589,35 +589,40 @@ const TimelineItem = ({ item, customerId, onDeleted }) => {
 
             {/* Reply Dialog */}
             <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>Svara på meddelande</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader className="space-y-2">
+                        <DialogTitle className="text-base sm:text-lg">Svara på meddelande</DialogTitle>
+                        <DialogDescription className="text-sm">
                             Svar till: {item.from_label}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 py-3 sm:py-4">
                         <div className="space-y-2">
-                            <Label htmlFor="reply-message">Meddelande</Label>
+                            <Label htmlFor="reply-message" className="text-sm">Meddelande</Label>
                             <Textarea
                                 id="reply-message"
                                 placeholder="Skriv ditt svar här..."
                                 value={replyMessage}
                                 onChange={(e) => setReplyMessage(e.target.value)}
-                                rows={6}
-                                className="resize-none"
+                                rows={8}
+                                className="resize-none text-sm sm:text-base min-h-[180px]"
                             />
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
                         <Button
                             variant="outline"
                             onClick={() => setShowReplyDialog(false)}
                             disabled={sending}
+                            className="w-full sm:w-auto order-2 sm:order-1"
                         >
                             Avbryt
                         </Button>
-                        <Button onClick={handleReply} disabled={sending}>
+                        <Button
+                            onClick={handleReply}
+                            disabled={sending}
+                            className="w-full sm:w-auto order-1 sm:order-2"
+                        >
                             {sending ? 'Skickar...' : 'Skicka svar'}
                         </Button>
                     </DialogFooter>
