@@ -2,8 +2,13 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp, Clock, Reply, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../hooks/use-toast';
 
 // Utility to decode HTML entities
 const decodeHTML = (html) => {
@@ -188,6 +193,7 @@ export const Timeline = ({ customerId }) => {
                         type: 'email',
                         title: subject,
                         from_label: fromLabel,
+                        from_email: email.from_email || email.from_address,
                         preview: previewContent.length > 300
                             ? previewContent.substring(0, 300)
                             : previewContent,
@@ -388,7 +394,7 @@ export const Timeline = ({ customerId }) => {
                 <CardContent>
                     <div className="space-y-4 sm:space-y-6 border-l-2 border-muted pl-4 sm:pl-6 relative">
                         {items.map((item) => (
-                            <TimelineItem key={item.id} item={item} />
+                            <TimelineItem key={item.id} item={item} customerId={customerId} onDeleted={() => setItems(items.filter(i => i.id !== item.id))} />
                         ))}
                     </div>
                 </CardContent>
@@ -398,8 +404,13 @@ export const Timeline = ({ customerId }) => {
 };
 
 // Separate component for each timeline item to handle expand state
-const TimelineItem = ({ item }) => {
+const TimelineItem = ({ item, customerId, onDeleted }) => {
     const [expanded, setExpanded] = useState(false);
+    const [showReplyDialog, setShowReplyDialog] = useState(false);
+    const [replyMessage, setReplyMessage] = useState('');
+    const [sending, setSending] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const { toast } = useToast();
 
     const isEmail = item.type === 'email';
     const Icon = isEmail ? Mail : FileText;
@@ -419,6 +430,89 @@ const TimelineItem = ({ item }) => {
 
     const displayContent = expanded ? item.fullContent : item.preview;
     const canExpand = item.hasMore && item.fullContent;
+
+    const handleReply = async () => {
+        if (!replyMessage.trim()) {
+            toast({
+                title: 'Tomt meddelande',
+                description: 'Skriv ett meddelande innan du skickar',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        setSending(true);
+        try {
+            // Insert outbound message
+            const { error } = await supabase
+                .from('messages')
+                .insert([{
+                    customer_id: customerId,
+                    direction: 'outbound',
+                    channel: 'email',
+                    subject: `Re: ${item.title || ''}`,
+                    body_full: replyMessage,
+                    body_preview: replyMessage.substring(0, 500),
+                    from_email: 'info@marinmekaniker.nu', // TODO: Get from settings
+                    to_email: item.from_email || '',
+                    status: 'draft', // Will be sent by n8n or other service
+                    received_at: new Date().toISOString(),
+                }]);
+
+            if (error) throw error;
+
+            toast({
+                title: 'Svar sparat',
+                description: 'Ditt svar har sparats som utkast',
+            });
+
+            setReplyMessage('');
+            setShowReplyDialog(false);
+
+            // TODO: Trigger email sending via n8n or SMTP
+        } catch (err) {
+            console.error('Error saving reply:', err);
+            toast({
+                title: 'Fel',
+                description: 'Kunde inte spara svaret. Försök igen.',
+                variant: 'destructive',
+            });
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm('Är du säker på att du vill radera detta meddelande?')) {
+            return;
+        }
+
+        setDeleting(true);
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .delete()
+                .eq('id', item.id);
+
+            if (error) throw error;
+
+            toast({
+                title: 'Raderat',
+                description: 'Meddelandet har raderats',
+            });
+
+            if (onDeleted) onDeleted();
+        } catch (err) {
+            console.error('Error deleting message:', err);
+            toast({
+                title: 'Fel',
+                description: 'Kunde inte radera meddelandet. Försök igen.',
+                variant: 'destructive',
+            });
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     return (
         <div className="relative">
@@ -466,7 +560,69 @@ const TimelineItem = ({ item }) => {
                         )}
                     </button>
                 )}
+
+                {/* Action buttons - only show for emails */}
+                {isEmail && (
+                    <div className="flex gap-2 mt-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowReplyDialog(true)}
+                            className="text-xs h-7"
+                        >
+                            <Reply className="h-3 w-3 mr-1" />
+                            Svara
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="text-xs h-7 text-destructive hover:text-destructive"
+                        >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            {deleting ? 'Raderar...' : 'Radera'}
+                        </Button>
+                    </div>
+                )}
             </div>
+
+            {/* Reply Dialog */}
+            <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Svara på meddelande</DialogTitle>
+                        <DialogDescription>
+                            Svar till: {item.from_label}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="reply-message">Meddelande</Label>
+                            <Textarea
+                                id="reply-message"
+                                placeholder="Skriv ditt svar här..."
+                                value={replyMessage}
+                                onChange={(e) => setReplyMessage(e.target.value)}
+                                rows={6}
+                                className="resize-none"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowReplyDialog(false)}
+                            disabled={sending}
+                        >
+                            Avbryt
+                        </Button>
+                        <Button onClick={handleReply} disabled={sending}>
+                            {sending ? 'Skickar...' : 'Skicka svar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
