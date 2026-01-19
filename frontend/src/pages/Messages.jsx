@@ -8,6 +8,10 @@ import { Header } from '../components/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '../hooks/use-toast';
 import {
     Mail,
     ArrowUpDown,
@@ -18,7 +22,9 @@ import {
     ChevronDown,
     ChevronUp,
     ArrowRight,
-    Search
+    Search,
+    Reply,
+    Trash2
 } from 'lucide-react';
 
 // Utility to decode HTML entities
@@ -135,6 +141,11 @@ export const Messages = () => {
     const [sortDirection, setSortDirection] = useState('desc');
     const [expandedIds, setExpandedIds] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+    const [showReplyDialog, setShowReplyDialog] = useState(false);
+    const [replyMessage, setReplyMessage] = useState('');
+    const [replyToMessage, setReplyToMessage] = useState(null);
+    const [sending, setSending] = useState(false);
+    const { toast } = useToast();
 
     useEffect(() => {
         fetchMessages();
@@ -196,6 +207,94 @@ export const Messages = () => {
             }
             return newSet;
         });
+    };
+
+    const handleReplyClick = (message) => {
+        setReplyToMessage(message);
+        setReplyMessage('');
+        setShowReplyDialog(true);
+    };
+
+    const handleReply = async () => {
+        if (!replyMessage.trim()) {
+            toast({
+                title: 'Tomt meddelande',
+                description: 'Skriv ett meddelande innan du skickar',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        if (!replyToMessage) return;
+
+        setSending(true);
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .insert([{
+                    customer_id: replyToMessage.customer_id,
+                    direction: 'outbound',
+                    channel: 'email',
+                    subject: `Re: ${replyToMessage.subject || ''}`,
+                    body_full: replyMessage,
+                    body_preview: replyMessage.substring(0, 500),
+                    from_email: 'info@marinmekaniker.nu',
+                    to_email: replyToMessage.from_email || '',
+                    status: 'draft',
+                    received_at: new Date().toISOString(),
+                }]);
+
+            if (error) throw error;
+
+            toast({
+                title: 'Svar sparat',
+                description: 'Ditt svar har sparats som utkast',
+            });
+
+            setReplyMessage('');
+            setShowReplyDialog(false);
+            setReplyToMessage(null);
+            fetchMessages(); // Refresh list
+        } catch (err) {
+            console.error('Error saving reply:', err);
+            toast({
+                title: 'Fel',
+                description: 'Kunde inte spara svaret. Försök igen.',
+                variant: 'destructive',
+            });
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const handleDelete = async (messageId) => {
+        if (!confirm('Är du säker på att du vill radera detta meddelande?')) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('messages')
+                .delete()
+                .eq('id', messageId);
+
+            if (error) throw error;
+
+            toast({
+                title: 'Raderat',
+                description: 'Meddelandet har raderats',
+            });
+
+            // Remove from local state
+            setMessages(prev => prev.filter(m => m.id !== messageId));
+        } catch (err) {
+            console.error('Error deleting message:', err);
+            toast({
+                title: 'Fel',
+                description: 'Kunde inte radera meddelandet. Försök igen.',
+                variant: 'destructive',
+            });
+        }
     };
 
     // Filter messages based on search query
@@ -408,6 +507,30 @@ export const Messages = () => {
                                                         )}
                                                     </button>
                                                 )}
+
+                                                {/* Action buttons */}
+                                                {message.direction === 'inbound' && (
+                                                    <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleReplyClick(message)}
+                                                            className="text-xs sm:text-sm h-9 sm:h-8 w-full sm:w-auto"
+                                                        >
+                                                            <Reply className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" />
+                                                            Svara
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleDelete(message.id)}
+                                                            className="text-xs sm:text-sm h-9 sm:h-8 w-full sm:w-auto text-destructive hover:text-destructive"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" />
+                                                            Radera
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -417,6 +540,50 @@ export const Messages = () => {
                     )}
                 </div>
             </main>
+
+            {/* Reply Dialog */}
+            <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
+                <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader className="space-y-2">
+                        <DialogTitle className="text-base sm:text-lg">Svara på meddelande</DialogTitle>
+                        {replyToMessage && (
+                            <DialogDescription className="text-sm">
+                                Svar till: {fixSwedishEncoding(decodeQuotedPrintable(replyToMessage.from_name || replyToMessage.from_email || ''))}
+                            </DialogDescription>
+                        )}
+                    </DialogHeader>
+                    <div className="space-y-4 py-3 sm:py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="reply-message" className="text-sm">Meddelande</Label>
+                            <Textarea
+                                id="reply-message"
+                                placeholder="Skriv ditt svar här..."
+                                value={replyMessage}
+                                onChange={(e) => setReplyMessage(e.target.value)}
+                                rows={8}
+                                className="resize-none text-sm sm:text-base min-h-[180px]"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowReplyDialog(false)}
+                            disabled={sending}
+                            className="w-full sm:w-auto order-2 sm:order-1"
+                        >
+                            Avbryt
+                        </Button>
+                        <Button
+                            onClick={handleReply}
+                            disabled={sending}
+                            className="w-full sm:w-auto order-1 sm:order-2"
+                        >
+                            {sending ? 'Skickar...' : 'Skicka svar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
