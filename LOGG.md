@@ -1,5 +1,54 @@
 # Utvecklingslogg
 
+## 2026-01-20 (em) - Fix: HTML/CSS visas i meddelandetext
+
+### Problem identifierat
+
+Meddelandetext visade rå CSS-kod istället för läsbar text:
+
+- `body {background-color: #e7e7e7; font-family: sans-serif; color: #06395b; } .w-100 {width: 100%; }`
+- `p{ margin:10px 0; padding:0; }`
+
+**Orsak:** HTML-emails innehåller `<style>` block med CSS. Den gamla regex-strippningen `/<[^>]*>/g` tog bort HTML-taggar men lämnade kvar innehållet inuti `<style>...</style>`.
+
+### Åtgärder
+
+#### 1. Uppdaterat n8n Email_IMAP_Ingest workflow
+
+La till ny funktion `stripHtmlAndCss()` som korrekt:
+
+- Tar bort `<style>`, `<script>`, `<head>` block med innehåll
+- Tar bort HTML-kommentarer
+- Konverterar block-element till radbrytningar
+- Avkodar HTML-entities (`&nbsp;`, `&amp;`, etc.)
+- Tar bort kvarvarande CSS-mönster (`.class { ... }`, `property: value;`)
+
+#### 2. Uppdaterat frontend Messages.jsx
+
+La till samma `stripHtmlAndCss()` funktion i frontend som backup-rensning vid visning.
+
+### Filer ändrade
+
+- `frontend/src/pages/Messages.jsx` - La till stripHtmlAndCss funktion
+- n8n workflow `Email_IMAP_Ingest` - Uppdaterat via MCP
+
+### Status (2026-01-20 13:25)
+
+- 🟢 **n8n workflow uppdaterat** - Nya emails processas korrekt
+- 🟢 **Frontend uppdaterat** - Befintliga emails visas utan CSS
+- 🟢 **Deployat till Netlify** - Produktionsversion uppdaterad
+
+### Teknisk detalj
+
+Ordning för rensning:
+
+1. `stripHtmlAndCss()` - Tar bort style/script/head block och HTML-taggar
+2. `decodeQuotedPrintable()` - Avkodar =XX hex-sekvenser
+3. `fixMojibake()` - Fixar felavkodad UTF-8
+4. `stripProblematicChars()` - Tar bort kontrollkaraktärer och emojis
+
+---
+
 ## 2026-01-20 - Fix: Email textenkodning & SMTP-konfiguration
 
 ### Problem identifierat

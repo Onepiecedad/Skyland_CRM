@@ -105,11 +105,63 @@ const fixSwedishEncoding = (text) => {
     return fixed;
 };
 
+// Utility to strip HTML and CSS from email body
+const stripHtmlAndCss = (html) => {
+    if (!html) return '';
+
+    let text = html;
+
+    // Remove all <style> blocks and their content
+    text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+    // Remove all <script> blocks and their content
+    text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+
+    // Remove all <head> blocks and their content
+    text = text.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
+
+    // Remove HTML comments
+    text = text.replace(/<!--[\s\S]*?-->/g, '');
+
+    // Remove DOCTYPE, xml declarations
+    text = text.replace(/<!DOCTYPE[^>]*>/gi, '');
+    text = text.replace(/<\?xml[^>]*\?>/gi, '');
+
+    // Convert common block elements to newlines before stripping
+    text = text.replace(/<\/(p|div|h[1-6]|li|tr|br)>/gi, '\n');
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<hr\s*\/?>/gi, '\n---\n');
+
+    // Remove all remaining HTML tags
+    text = text.replace(/<[^>]*>/g, '');
+
+    // Decode common HTML entities
+    text = text.replace(/&nbsp;/gi, ' ');
+    text = text.replace(/&amp;/gi, '&');
+    text = text.replace(/&lt;/gi, '<');
+    text = text.replace(/&gt;/gi, '>');
+    text = text.replace(/&quot;/gi, '"');
+    text = text.replace(/&#39;/gi, "'");
+    text = text.replace(/&apos;/gi, "'");
+    text = text.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
+    text = text.replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+
+    // Remove CSS-like patterns that might have leaked through
+    // Match patterns like: .class { ... } or element { ... } or @media { ... }
+    text = text.replace(/[.#@]?[\w-]+\s*\{[^}]*\}/g, '');
+
+    // Remove remaining inline style-like patterns (property: value;)
+    text = text.replace(/[\w-]+\s*:\s*[^;{}\n]+;/g, '');
+
+    return text;
+};
+
 // Utility to clean email body text
 const cleanEmailBody = (text) => {
     if (!text) return '';
 
-    let cleaned = text;
+    // First strip any HTML/CSS
+    let cleaned = stripHtmlAndCss(text);
 
     // Remove email headers (date/time stamps with timezone info)
     cleaned = cleaned.replace(/^\d{1,2}\s+\w+\s+\d{4},\s+\d{2}:\d{2}\s+\w+\s+\w+,\s+skrev\s+[^:]+:/gm, '');
@@ -125,6 +177,9 @@ const cleanEmailBody = (text) => {
 
     // Remove multiple consecutive blank lines
     cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+
+    // Clean up multiple spaces
+    cleaned = cleaned.replace(/  +/g, ' ');
 
     // Trim whitespace
     cleaned = cleaned.trim();
@@ -268,7 +323,7 @@ export const Messages = () => {
     };
 
     const handleDelete = async (messageId) => {
-        if (!confirm('Är du säker på att du vill radera detta meddelande?')) {
+        if (!window.confirm('Är du säker på att du vill radera detta meddelande?')) {
             return;
         }
 
