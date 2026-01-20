@@ -184,7 +184,7 @@ export const JobDetail = () => {
     };
 
     const handleDeleteItem = async (itemId) => {
-        if (!confirm('Är du säker på att du vill ta bort denna rad?')) return;
+        if (!window.confirm('Är du säker på att du vill ta bort denna rad?')) return;
 
         try {
             await jobItemsAPI.delete(itemId);

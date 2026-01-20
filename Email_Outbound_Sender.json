@@ -1,0 +1,293 @@
+{
+    "name": "Email_Outbound_Sender",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 1
+                        }
+                    ]
+                }
+            },
+            "id": "schedule-trigger",
+            "name": "Every Minute",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                -600,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "messages",
+                "limit": 10,
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "status",
+                            "condition": "eq",
+                            "keyValue": "queued"
+                        },
+                        {
+                            "keyName": "direction",
+                            "condition": "eq",
+                            "keyValue": "outbound"
+                        },
+                        {
+                            "keyName": "channel",
+                            "condition": "eq",
+                            "keyValue": "email"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                -380,
+                0
+            ],
+            "id": "fetch-queued",
+            "name": "Fetch Queued Messages",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "pawqI25Bvupo0uud",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "has-items",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEmpty"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "has-messages",
+            "name": "Has Messages?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                -160,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "fromEmail": "={{ $json.from_email }}",
+                "toEmail": "={{ $json.to_email }}",
+                "subject": "={{ $json.subject }}",
+                "emailFormat": "text",
+                "text": "={{ $json.body_full || $json.content }}",
+                "options": {
+                    "replyTo": "info@marinmekaniker.nu"
+                }
+            },
+            "id": "send-email",
+            "name": "Send Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 2.1,
+            "position": [
+                60,
+                -100
+            ],
+            "credentials": {
+                "smtp": {
+                    "id": "YOUR_SMTP_CREDENTIAL_ID",
+                    "name": "SMTP account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "tableId": "messages",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "condition": "eq",
+                            "keyValue": "={{ $('Fetch Queued Messages').item.json.id }}"
+                        }
+                    ]
+                },
+                "dataToSend": "defineBelow",
+                "fieldsToSend": {
+                    "fieldValues": [
+                        {
+                            "fieldName": "status",
+                            "fieldValue": "sent"
+                        },
+                        {
+                            "fieldName": "sent_at",
+                            "fieldValue": "={{ new Date().toISOString() }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                280,
+                -100
+            ],
+            "id": "update-status-sent",
+            "name": "Update Status: Sent",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "pawqI25Bvupo0uud",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "tableId": "messages",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "condition": "eq",
+                            "keyValue": "={{ $('Fetch Queued Messages').item.json.id }}"
+                        }
+                    ]
+                },
+                "dataToSend": "defineBelow",
+                "fieldsToSend": {
+                    "fieldValues": [
+                        {
+                            "fieldName": "status",
+                            "fieldValue": "failed"
+                        },
+                        {
+                            "fieldName": "error_message",
+                            "fieldValue": "={{ $json.message || 'Unknown error' }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                280,
+                100
+            ],
+            "id": "update-status-failed",
+            "name": "Update Status: Failed",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "pawqI25Bvupo0uud",
+                    "name": "Supabase account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "result",
+                            "name": "result",
+                            "value": "No queued messages",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "no-messages",
+            "name": "No Messages",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                60,
+                100
+            ]
+        }
+    ],
+    "connections": {
+        "Every Minute": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Queued Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Queued Messages": {
+            "main": [
+                [
+                    {
+                        "node": "Has Messages?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Messages?": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "No Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Email": {
+            "main": [
+                [
+                    {
+                        "node": "Update Status: Sent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1",
+        "errorWorkflow": ""
+    },
+    "meta": {
+        "templateCredsSetupCompleted": false
+    },
+    "tags": []
+}

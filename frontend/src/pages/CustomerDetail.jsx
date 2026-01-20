@@ -545,7 +545,7 @@ export const CustomerDetail = () => {
       </div>
 
       {/* Tidslinje */}
-      <Timeline customerId={id} />
+      <Timeline customerId={id} customer={customer} />
     </div>
   );
 };

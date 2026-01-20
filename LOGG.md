@@ -1,5 +1,78 @@
 # Utvecklingslogg
 
+## 2026-01-19 (kväll) - Svara på och radera meddelanden
+
+### Implementerat
+
+#### 1. Svara på meddelanden (Reply)
+
+- **ReplyModal.jsx** - Ny komponent för att svara på email
+  - Visar mottagare (auto-detect från inbound/outbound)
+  - Ämnesrad med "Re: " prefix
+  - Textfält för svar
+  - Förhandsgranskning av originalmeddelande
+  - Sparar utgående meddelande i `messages` med `status: 'queued'`
+
+#### 2. Radera meddelanden (Delete)
+
+- **DeleteMessageModal.jsx** - Bekräftelsemodal för radering
+  - Visar förhandsgranskning av meddelande som ska raderas
+  - Kräver bekräftelse innan radering
+  - Tar bort från `messages`-tabellen via Supabase
+
+#### 3. Timeline uppdaterad
+
+- Lade till "Svara" och "Radera" knappar på varje email
+- Knappar visas endast för emails (inte formulär)
+- Timeline refreshar automatiskt efter lyckad åtgärd
+
+#### 4. n8n Workflow för utgående email
+
+- **Email_Outbound_Sender.json** - Nytt workflow
+  - Kollar var minut efter `status='queued'` + `direction='outbound'`
+  - Skickar via SMTP
+  - Uppdaterar status till `sent` eller `failed`
+  - **Kräver:** SMTP credentials kopplas i n8n
+
+### Filer skapade
+
+- `frontend/src/components/ReplyModal.jsx`
+- `frontend/src/components/DeleteMessageModal.jsx`
+- `Email_Outbound_Sender.json` (n8n workflow)
+- `migrations/20260119_add_messages_delete_policy.sql`
+
+### Filer ändrade
+
+- `frontend/src/components/Timeline.jsx` - Lade till modaler och knappar
+- `frontend/src/pages/CustomerDetail.jsx` - Skickar `customer` prop till Timeline
+- `frontend/src/pages/JobDetail.jsx` - Bugfix: `window.confirm` istället för `confirm`
+
+### Databas-migration krävs
+
+Kör följande SQL i Supabase:
+
+```sql
+CREATE POLICY "Authenticated delete" ON messages
+  FOR DELETE USING (auth.role() = 'authenticated');
+```
+
+### Status (2026-01-19 kväll)
+
+- 🟢 **Svara-funktion implementerad** - Meddelande sparas i databasen
+- 🟢 **Radera-funktion implementerad** - Med bekräftelsemodal
+- 🟡 **n8n-workflow** - Kräver SMTP credentials kopplade för att faktiskt skicka
+- 🟢 **Build OK** - Frontend bygger utan fel
+
+### Nästa steg
+
+1. Kör SQL-migrationen för DELETE policy
+2. Importera `Email_Outbound_Sender.json` i n8n
+3. Koppla SMTP-credentials i n8n
+4. Aktivera workflow
+5. Testa fullständigt flöde
+
+---
+
 ## 2026-01-19 - Automatisk kundhantering & Smart extraktion
 
 ### Implementerat
