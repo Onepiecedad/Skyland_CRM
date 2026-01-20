@@ -132,27 +132,44 @@ export const CustomerDetail = () => {
   };
 
   const handleDelete = async () => {
-    const confirmMessage = `Är du säker på att du vill ta bort ${formatCustomerName(customer.name, customer.email)}? Detta tar även bort alla meddelanden kopplade till denna kund.`;
+    const confirmMessage = `Är du säker på att du vill ta bort ${formatCustomerName(customer.name, customer.email)}? Detta tar även bort alla meddelanden och ärenden kopplade till denna kund.`;
 
     if (!window.confirm(confirmMessage)) return;
 
     setDeleting(true);
     try {
-      // Delete messages first (foreign key constraint)
+      // Delete messages first (foreign key constraint with NO ACTION)
       const { error: messagesError } = await supabase
         .from('messages')
         .delete()
         .eq('customer_id', id);
 
-      if (messagesError) throw messagesError;
+      if (messagesError) {
+        console.error('Error deleting messages:', messagesError);
+        throw messagesError;
+      }
 
-      // Delete customer
+      // Delete leads (foreign key constraint with NO ACTION)
+      const { error: leadsError } = await supabase
+        .from('leads')
+        .delete()
+        .eq('customer_id', id);
+
+      if (leadsError) {
+        console.error('Error deleting leads:', leadsError);
+        throw leadsError;
+      }
+
+      // Delete customer (boats, jobs, activity_log have CASCADE or SET NULL)
       const { error: customerError } = await supabase
         .from('customers')
         .delete()
         .eq('id', id);
 
-      if (customerError) throw customerError;
+      if (customerError) {
+        console.error('Error deleting customer:', customerError);
+        throw customerError;
+      }
 
       // Navigate back to customer list
       navigate('/kunder');
