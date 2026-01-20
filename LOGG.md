@@ -1,5 +1,79 @@
 # Utvecklingslogg
 
+## 2026-01-20 - Fix: Email textenkodning & SMTP-konfiguration
+
+### Problem identifierat
+
+Meddelandetext i appen visade konstiga tecken istället för ord:
+
+- `Godmorgon Anja ●▅▅▅▅●▅▅▅▅●▅` istället för `Godmorgon Anja ☀️`
+- `Vad kul ●▅▅▅▅` istället för `Vad kul ✨`
+
+**Orsak:** Emojis och specialtecken (UTF-8 4-byte) dekodades felaktigt vid IMAP-import. Tecknen lagrades som korrupta byte-sekvenser (C1 control characters).
+
+### Åtgärder
+
+#### 1. Rensat befintlig data i databasen
+
+```sql
+-- Tog bort C1 control characters (korrupta emoji-rester)
+UPDATE messages 
+SET 
+  body_preview = regexp_replace(body_preview, E'[\u0080-\u009F]+', '', 'g'),
+  body_full = regexp_replace(body_full, E'[\u0080-\u009F]+', '', 'g'),
+  subject = regexp_replace(subject, E'[\u0080-\u009F]+', '', 'g');
+
+-- Ersatte ¦ med ...
+UPDATE messages SET body_preview = replace(body_preview, '¦', '...');
+```
+
+#### 2. Uppdaterat n8n Email_IMAP_Ingest workflow
+
+La till ny funktion `stripProblematicChars()`:
+
+```javascript
+function stripProblematicChars(text) {
+  if (!text) return '';
+  return text
+    .replace(/[\x80-\x9F]/g, '')           // C1 control characters
+    .replace(/[¨»¿ï¸â]/g, '')              // Mojibake-rester
+    .replace(/[\uD800-\uDFFF]/g, '')       // Emoji surrogates
+    .replace(/[\uFE00-\uFE0F]/g, '')       // Variation selectors
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')  // Control chars
+    .replace(/  +/g, ' ')
+    .trim();
+}
+```
+
+Alla text-fält (subject, body, fromName) processas nu genom:
+
+```javascript
+stripProblematicChars(fixMojibake(decodeQuotedPrintable(rawText)))
+```
+
+#### 3. SMTP-konfiguration för utgående email
+
+- Uppdaterade SMTP credentials i n8n till **port 465 med SSL** (från 587 med STARTTLS)
+- One.com SMTP (`send.one.com`) hade timeout på port 587 från n8n Cloud
+- **Status:** Timeout kvarstår - kan kräva alternativ SMTP-provider (SendGrid/Mailgun)
+
+### Filer skapade/ändrade
+
+- `Email_IMAP_Ingest_FIXED.json` - Backup av fixat workflow
+- `Email_Outbound_Sender.json` - Workflow för utgående email (kräver fungerande SMTP)
+
+### Status (2026-01-20)
+
+- 🟢 **Email-text rensat** - Inga mer konstiga tecken i befintliga meddelanden
+- 🟢 **n8n workflow uppdaterat** - Nya emails rensas automatiskt vid import
+- 🟡 **Utgående email** - SMTP timeout, kräver alternativ lösning
+
+### Teknisk detalj
+
+Problemet var att emojis (som är UTF-8 4-byte sekvenser) dekodades byte-för-byte istället för som hela tecken. Detta resulterade i att varje byte blev ett separat (ogiltigt) tecken i C1 control character range (0x80-0x9F).
+
+---
+
 ## 2026-01-19 (kväll) - Svara på och radera meddelanden
 
 ### Implementerat
