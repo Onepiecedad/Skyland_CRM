@@ -32,11 +32,12 @@ La till samma `stripHtmlAndCss()` funktion i frontend som backup-rensning vid vi
 - `frontend/src/pages/Messages.jsx` - La till stripHtmlAndCss funktion
 - n8n workflow `Email_IMAP_Ingest` - Uppdaterat via MCP
 
-### Status (2026-01-20 13:25)
+### Status (2026-01-20 14:25)
 
 - 🟢 **n8n workflow uppdaterat** - Nya emails processas korrekt
 - 🟢 **Frontend uppdaterat** - Befintliga emails visas utan CSS
 - 🟢 **Deployat till Netlify** - Produktionsversion uppdaterad
+- 🟢 **Databas rensad** - Alla befintliga meddelanden rensade från CSS-kod
 
 ### Teknisk detalj
 
