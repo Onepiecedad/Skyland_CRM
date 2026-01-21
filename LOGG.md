@@ -13,7 +13,7 @@
 | # | Uppgift | Prioritet | Status | Notering |
 |---|---------|-----------|--------|----------|
 | 1 | Lägg till "Leads" i huvudnavigationen | 🔴 Hög | ✅ KLAR | |
-| 2 | Olästa-indikator på meddelanden (badge) | 🔴 Hög | ⬜ Väntar | Kräver DB-fält |
+| 2 | Olästa-indikator på meddelanden (badge) | 🔴 Hög | ✅ KLAR | |
 | 3 | "Nytt jobb"-knapp på kundsidan | 🔴 Hög | ✅ KLAR | |
 | 4 | Inbox/Skickat-flikar på meddelandesidan | 🔴 Hög | ✅ KLAR | |
 | 5 | Bottom navigation för mobil | 🟡 Medel | ✅ KLAR | |
@@ -27,7 +27,7 @@
 | 13 | Pull-to-refresh på mobil | 🟢 Låg | ✅ KLAR | |
 | 14 | Ta bort oanvänd Navigation.jsx | 🟢 Låg | ✅ KLAR | |
 
-**Framsteg:** 13/14 uppgifter klara (93%)
+**Framsteg:** ✅ 14/14 uppgifter klara (100%) - PROJEKT SLUTFÖRT!
 
 ---
 

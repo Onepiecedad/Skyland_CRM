@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { messagesAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Menu, X, Home, Mail, Users, Wrench, LogOut, Search, User, FileText } from 'lucide-react';
 
 export const Header = () => {
@@ -18,6 +20,9 @@ export const Header = () => {
     const [searching, setSearching] = useState(false);
     const searchRef = useRef(null);
     const inputRef = useRef(null);
+
+    // Unread messages count
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -36,6 +41,35 @@ export const Header = () => {
         if (path === '/') return location.pathname === '/';
         return location.pathname.startsWith(path);
     };
+
+    // Fetch unread messages count
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                const response = await messagesAPI.getUnreadCount();
+                setUnreadCount(response.data.count);
+            } catch (error) {
+                console.error('Error fetching unread count:', error);
+            }
+        };
+
+        fetchUnreadCount();
+
+        // Subscribe to realtime changes on messages table
+        const channel = supabase
+            .channel('messages-unread')
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'messages' },
+                () => {
+                    fetchUnreadCount();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     // Search functionality
     useEffect(() => {
@@ -205,10 +239,18 @@ export const Header = () => {
                         <Link
                             key={path}
                             to={path}
-                            className={`text-sm font-medium transition-colors hover:text-primary ${isActive(path) ? 'text-primary' : 'text-muted-foreground'
+                            className={`text-sm font-medium transition-colors hover:text-primary relative ${isActive(path) ? 'text-primary' : 'text-muted-foreground'
                                 }`}
                         >
                             {label}
+                            {path === '/meddelanden' && unreadCount > 0 && (
+                                <Badge
+                                    variant="destructive"
+                                    className="absolute -top-2 -right-4 h-5 min-w-[20px] text-[10px] px-1.5"
+                                >
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </Badge>
+                            )}
                         </Link>
                     ))}
                     <Button variant="ghost" size="sm" onClick={handleLogout}>
