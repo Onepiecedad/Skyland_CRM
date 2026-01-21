@@ -16,7 +16,7 @@ import { BottomNav } from './components/BottomNav';
 
 function App() {
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background overflow-x-hidden">
             <BrowserRouter>
                 <Routes>
                     <Route path="/login" element={<Login />} />
