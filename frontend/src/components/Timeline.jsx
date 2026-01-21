@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp, Clock, Reply, Trash2, MoreHorizontal } from 'lucide-react';
+import { Mail, FileText, RefreshCw, ChevronDown, ChevronUp, Clock, Reply, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { ReplyModal } from './ReplyModal';
 import { DeleteMessageModal } from './DeleteMessageModal';
@@ -31,21 +31,6 @@ const decodeQuotedPrintable = (text) => {
         return decoded;
     } catch (e) {
         console.warn('Error decoding quoted-printable:', e);
-        return text;
-    }
-};
-
-// Utility to decode base64
-const decodeBase64 = (text) => {
-    if (!text) return '';
-
-    try {
-        // Check if it looks like base64
-        if (/^[A-Za-z0-9+/]+=*$/.test(text.trim())) {
-            return atob(text);
-        }
-        return text;
-    } catch (e) {
         return text;
     }
 };
@@ -85,28 +70,115 @@ const fixSwedishEncoding = (text) => {
     return fixed;
 };
 
-// Utility to clean email body text
+// Utility to clean email body text - AGGRESSIVELY removes quoted replies
 const cleanEmailBody = (text) => {
     if (!text) return '';
 
     let cleaned = text;
 
-    // Remove email headers (date/time stamps with timezone info)
-    cleaned = cleaned.replace(/^\d{1,2}\s+\w+\s+\d{4},\s+\d{2}:\d{2}\s+\w+\s+\w+,\s+skrev\s+[^:]+:/gm, '');
+    // Split into lines for processing
+    const lines = cleaned.split('\n');
+    const cleanedLines = [];
+    let inQuotedSection = false;
+    let inSignature = false;
 
-    // Remove "Den [date] skrev [name] <email>:" patterns
-    cleaned = cleaned.replace(/^Den\s+\d{4}-\d{2}-\d{2}\s+\w+\s+\d{2}:\d{2}\s+skrev\s+[^:]+:/gm, '');
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
 
-    // Remove "On [date], [name] wrote:" patterns
-    cleaned = cleaned.replace(/^On\s+\w+,?\s+\w+\s+\d{1,2},?\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[AP]M,?\s+[^:]+wrote:/gm, '');
+        // Skip empty lines at the start
+        if (cleanedLines.length === 0 && trimmedLine === '') continue;
 
-    // Simplify quoted reply markers - collapse multiple levels
-    cleaned = cleaned.replace(/^(>\s*)+/gm, '> ');
+        // Detect start of quoted section (lines starting with >)
+        if (trimmedLine.startsWith('>')) {
+            inQuotedSection = true;
+            continue; // Skip quoted lines
+        }
+
+        // Detect email headers that indicate start of quoted content
+        // "Den [date] skrev [name]:" - Swedish
+        if (/^Den\s+\d/.test(trimmedLine) && trimmedLine.includes('skrev')) {
+            inQuotedSection = true;
+            continue;
+        }
+
+        // "[date] [time] skrev [name]:" - Swedish variant
+        if (/^\d{1,2}\s+\w+\s+\d{4}/.test(trimmedLine) && trimmedLine.includes('skrev')) {
+            inQuotedSection = true;
+            continue;
+        }
+
+        // "On [date], [name] wrote:" - English
+        if (/^On\s+\w/.test(trimmedLine) && /wrote:?$/i.test(trimmedLine)) {
+            inQuotedSection = true;
+            continue;
+        }
+
+        // "From: [name]" header
+        if (/^From:\s/.test(trimmedLine) || /^Från:\s/.test(trimmedLine)) {
+            inQuotedSection = true;
+            continue;
+        }
+
+        // "Sent from my iPhone/Android" - skip these
+        if (/^Skickat från min iPhone/i.test(trimmedLine) ||
+            /^Sent from my/i.test(trimmedLine) ||
+            /^Skickat från /i.test(trimmedLine)) {
+            continue;
+        }
+
+        // Detect signature blocks
+        if (trimmedLine === '--' || trimmedLine === '-- ') {
+            inSignature = true;
+            continue;
+        }
+
+        // "Med vänlig hälsning" often starts signature block
+        if (/^Med vänlig hälsning/i.test(trimmedLine) ||
+            /^Mvh/i.test(trimmedLine) ||
+            /^Best regards/i.test(trimmedLine) ||
+            /^Kind regards/i.test(trimmedLine) ||
+            /^Vänliga hälsningar/i.test(trimmedLine)) {
+            // Include this line but might start signature
+            cleanedLines.push(line);
+            continue;
+        }
+
+        // If we're in a quoted section and hit a non-empty, non-quoted line,
+        // it might be the end of quoting OR continuation of original message
+        // Be conservative - if line doesn't start with > and isn't a header, might be new content
+        if (inQuotedSection && trimmedLine !== '' && !trimmedLine.startsWith('>')) {
+            // Check if this looks like continuation of reply chain
+            if (/^[<>\[\]_\-=]+$/.test(trimmedLine)) {
+                continue; // Skip separator lines
+            }
+            // If it's a short line with just name/email, skip
+            if (trimmedLine.includes('@') && trimmedLine.length < 60) {
+                continue;
+            }
+        }
+
+        // Skip if we're in quoted section or signature
+        if (inQuotedSection || inSignature) continue;
+
+        // Skip lines that are just email formatting/separators
+        if (/^[>\s_\-=]{10,}$/.test(trimmedLine)) continue;
+
+        // Skip very short lines that are likely artifacts
+        if (trimmedLine.length < 3 && /^[>\-_=\s]+$/.test(trimmedLine)) continue;
+
+        cleanedLines.push(line);
+    }
+
+    cleaned = cleanedLines.join('\n');
 
     // Remove multiple consecutive blank lines
     cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
 
-    // Trim whitespace
+    // Remove trailing whitespace from each line
+    cleaned = cleaned.split('\n').map(l => l.trimEnd()).join('\n');
+
+    // Trim overall
     cleaned = cleaned.trim();
 
     return cleaned;
