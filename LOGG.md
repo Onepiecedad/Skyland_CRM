@@ -21,13 +21,13 @@
 | 7 | Lägg till/redigera båtar (CRUD) | 🟡 Medel | ⬜ Väntar | |
 | 8 | Breadcrumbs på detaljsidor | 🟡 Medel | ✅ KLAR | |
 | 9 | Jobbtyp-filter på jobblistan | 🟡 Medel | ✅ KLAR | |
-| 10 | Snabbstatusknappar på jobbdetalj | 🟡 Medel | ⬜ Väntar | "Starta"→"Klar"→"Fakturera" |
+| 10 | Snabbstatusknappar på jobbdetalj | 🟡 Medel | ✅ KLAR | |
 | 11 | Loading skeletons | 🟢 Låg | ⬜ Väntar | |
 | 12 | Tomma-tillstånd illustrationer | 🟢 Låg | ⬜ Väntar | |
 | 13 | Pull-to-refresh på mobil | 🟢 Låg | ⬜ Väntar | |
 | 14 | Ta bort oanvänd Navigation.jsx | 🟢 Låg | ✅ KLAR | |
 
-**Framsteg:** 6/14 uppgifter klara (43%)
+**Framsteg:** 7/14 uppgifter klara (50%)
 
 ---
 
@@ -130,6 +130,23 @@
 **Filer ändrade:**
 
 - `frontend/src/pages/JobList.jsx`
+
+---
+
+#### Uppgift 10: Snabbstatusknappar på jobbdetalj ✅
+
+**Status:** KLAR | **Tid:** 2026-01-21 16:12
+
+**Ändringar:**
+
+- Lade till `handleQuickStatus` funktion för att snabbt uppdatera jobbstatus
+- Skapade `getQuickActions()` som returnerar kontextuella åtgärder baserat på nuvarande status
+- Implementerade smart statusflöde: Väntande → Starta/Boka in → Pågående → Klar → Fakturera
+- Lade till visuella snabbknappar i jobbheadern
+
+**Filer ändrade:**
+
+- `frontend/src/pages/JobDetail.jsx`
 
 ---
 

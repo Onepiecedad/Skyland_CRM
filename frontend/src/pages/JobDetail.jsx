@@ -155,6 +155,49 @@ export const JobDetail = () => {
         setIsEditing(false);
     };
 
+    // Quick status change without entering edit mode
+    const [updatingStatus, setUpdatingStatus] = useState(false);
+    const handleQuickStatus = async (newStatus) => {
+        setUpdatingStatus(true);
+        try {
+            await jobsAPI.update(id, { status: newStatus });
+            setJob({ ...job, status: newStatus });
+            setEditForm({ ...editForm, status: newStatus });
+        } catch (err) {
+            console.error('Error updating status:', err);
+            alert('Kunde inte uppdatera status. Försök igen.');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+    // Get the next logical status for quick actions
+    const getQuickActions = () => {
+        const actions = [];
+        switch (job.status) {
+            case 'pending':
+                actions.push({ status: 'scheduled', label: 'Boka in', variant: 'outline' });
+                actions.push({ status: 'in_progress', label: 'Starta', variant: 'default' });
+                break;
+            case 'scheduled':
+                actions.push({ status: 'in_progress', label: 'Starta', variant: 'default' });
+                break;
+            case 'in_progress':
+                actions.push({ status: 'waiting_parts', label: 'Väntar delar', variant: 'outline' });
+                actions.push({ status: 'completed', label: 'Markera klar', variant: 'default' });
+                break;
+            case 'waiting_parts':
+                actions.push({ status: 'in_progress', label: 'Fortsätt', variant: 'default' });
+                break;
+            case 'completed':
+                actions.push({ status: 'invoiced', label: 'Fakturera', variant: 'default' });
+                break;
+            default:
+                break;
+        }
+        return actions;
+    };
+
     const handleAddItem = async () => {
         if (!newItem.description.trim()) {
             alert('Beskrivning krävs');
@@ -266,7 +309,24 @@ export const JobDetail = () => {
                         </div>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    {/* Quick status actions */}
+                    {!isEditing && getQuickActions().map((action) => (
+                        <Button
+                            key={action.status}
+                            variant={action.variant}
+                            size="sm"
+                            onClick={() => handleQuickStatus(action.status)}
+                            disabled={updatingStatus}
+                        >
+                            {updatingStatus ? (
+                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            ) : null}
+                            {action.label}
+                        </Button>
+                    ))}
+
+                    {/* Edit buttons */}
                     {isEditing ? (
                         <>
                             <Button variant="outline" onClick={handleCancel} disabled={saving}>
@@ -279,7 +339,7 @@ export const JobDetail = () => {
                             </Button>
                         </>
                     ) : (
-                        <Button onClick={() => setIsEditing(true)}>
+                        <Button variant="outline" onClick={() => setIsEditing(true)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Redigera
                         </Button>
