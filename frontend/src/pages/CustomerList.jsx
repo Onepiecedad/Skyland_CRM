@@ -153,7 +153,7 @@ export const CustomerList = () => {
     const handleDelete = async () => {
         if (selectedIds.size === 0) return;
 
-        const confirmMessage = `Är du säker på att du vill ta bort ${selectedIds.size} kund${selectedIds.size > 1 ? 'er' : ''}? Detta tar även bort alla meddelanden kopplade till dessa kunder.`;
+        const confirmMessage = `Är du säker på att du vill ta bort ${selectedIds.size} kund${selectedIds.size > 1 ? 'er' : ''}? Detta tar även bort alla meddelanden och ärenden kopplade till dessa kunder.`;
 
         if (!window.confirm(confirmMessage)) return;
 
@@ -161,21 +161,38 @@ export const CustomerList = () => {
         try {
             const idsArray = Array.from(selectedIds);
 
-            // Delete messages first (foreign key constraint)
+            // Delete messages first (foreign key constraint with NO ACTION)
             const { error: messagesError } = await supabase
                 .from('messages')
                 .delete()
                 .in('customer_id', idsArray);
 
-            if (messagesError) throw messagesError;
+            if (messagesError) {
+                console.error('Error deleting messages:', messagesError);
+                throw messagesError;
+            }
 
-            // Delete customers
+            // Delete leads (foreign key constraint with NO ACTION)
+            const { error: leadsError } = await supabase
+                .from('leads')
+                .delete()
+                .in('customer_id', idsArray);
+
+            if (leadsError) {
+                console.error('Error deleting leads:', leadsError);
+                throw leadsError;
+            }
+
+            // Delete customers (boats, jobs, activity_log have CASCADE or SET NULL)
             const { error: customersError } = await supabase
                 .from('customers')
                 .delete()
                 .in('id', idsArray);
 
-            if (customersError) throw customersError;
+            if (customersError) {
+                console.error('Error deleting customers:', customersError);
+                throw customersError;
+            }
 
             // Update local state
             setCustomers(prev => prev.filter(c => !selectedIds.has(c.id)));
