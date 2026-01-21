@@ -62,7 +62,7 @@ export const Today = () => {
                     received_at,
                     body_preview,
                     customer_id,
-                    customers (
+                    customers!customer_id (
                         id,
                         name
                     )
