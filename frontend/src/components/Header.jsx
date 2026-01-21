@@ -6,12 +6,12 @@ import { formatCustomerName } from '../lib/formatName';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Menu, X, Home, Mail, Users, Wrench, LogOut, Search, User, FileText } from 'lucide-react';
+import { Home, Mail, Users, Wrench, LogOut, Search, User, FileText } from 'lucide-react';
 
 export const Header = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
 
     // Global search state
     const [searchOpen, setSearchOpen] = useState(false);
@@ -258,31 +258,21 @@ export const Header = () => {
                     </Button>
                 </nav>
 
-                {/* Mobile Menu Button */}
-                <div className="md:hidden flex items-center gap-2">
+                {/* Mobile Buttons */}
+                <div className="md:hidden flex items-center gap-1">
                     <button
                         className="p-2 hover:bg-muted rounded-md transition-colors"
-                        onClick={() => {
-                            setSearchOpen(!searchOpen);
-                            setMobileMenuOpen(false);
-                        }}
+                        onClick={() => setSearchOpen(!searchOpen)}
                         aria-label="Sök"
                     >
                         <Search className="h-5 w-5" />
                     </button>
                     <button
-                        className="p-2 -mr-2 hover:bg-muted rounded-md transition-colors"
-                        onClick={() => {
-                            setMobileMenuOpen(!mobileMenuOpen);
-                            setSearchOpen(false);
-                        }}
-                        aria-label="Meny"
+                        className="p-2 hover:bg-muted rounded-md transition-colors text-muted-foreground"
+                        onClick={handleLogout}
+                        aria-label="Logga ut"
                     >
-                        {mobileMenuOpen ? (
-                            <X className="h-5 w-5" />
-                        ) : (
-                            <Menu className="h-5 w-5" />
-                        )}
+                        <LogOut className="h-5 w-5" />
                     </button>
                 </div>
             </div>
@@ -349,37 +339,7 @@ export const Header = () => {
                 </div>
             )}
 
-            {/* Mobile Navigation */}
-            {mobileMenuOpen && (
-                <div className="md:hidden border-t bg-background">
-                    <nav className="container mx-auto px-4 py-2 flex flex-col">
-                        {navItems.map(({ path, label, icon: Icon }) => (
-                            <Link
-                                key={path}
-                                to={path}
-                                onClick={() => setMobileMenuOpen(false)}
-                                className={`flex items-center gap-3 py-3 px-2 rounded-md transition-colors ${isActive(path)
-                                    ? 'bg-primary/10 text-primary font-medium'
-                                    : 'text-foreground hover:bg-muted'
-                                    }`}
-                            >
-                                <Icon className="h-5 w-5" />
-                                {label}
-                            </Link>
-                        ))}
-                        <button
-                            onClick={() => {
-                                setMobileMenuOpen(false);
-                                handleLogout();
-                            }}
-                            className="flex items-center gap-3 py-3 px-2 rounded-md text-foreground hover:bg-muted transition-colors text-left"
-                        >
-                            <LogOut className="h-5 w-5" />
-                            Logga ut
-                        </button>
-                    </nav>
-                </div>
-            )}
+
         </header>
     );
 };
