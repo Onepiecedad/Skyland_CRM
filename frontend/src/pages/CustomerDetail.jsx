@@ -501,9 +501,9 @@ export const CustomerDetail = () => {
                       {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
                     </div>
                   </div>
-                  {lead.description && (
+                  {lead.message && (
                     <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap">
-                      {lead.description}
+                      {lead.message}
                     </p>
                   )}
                 </div>
