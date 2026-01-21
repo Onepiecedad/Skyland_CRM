@@ -212,9 +212,9 @@ export const Timeline = ({ customerId, customer }) => {
                     type: 'form',
                     title: 'Formulär',
                     from_label: fromLabel,
-                    preview: decodedMessage
-                        ? (decodedMessage.length > 160 ? decodedMessage.substring(0, 160) + '...' : decodedMessage)
-                        : '',
+                    preview: decodedMessage.length > 500 ? decodedMessage.substring(0, 500) + '...' : decodedMessage,
+                    fullContent: decodedMessage,
+                    hasMore: decodedMessage.length > 500,
                     ts: form.created_at || null,
                 };
             });

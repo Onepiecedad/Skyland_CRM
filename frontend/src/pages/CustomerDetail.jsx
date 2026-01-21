@@ -486,19 +486,26 @@ export const CustomerDetail = () => {
               <p className="text-muted-foreground text-center py-2 text-sm">Inga ärenden</p>
             ) : (
               leads.map((lead) => (
-                <div key={lead.id} className="flex justify-between items-start gap-2 border-b last:border-0 pb-3 last:pb-0">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm sm:text-base truncate">
-                      {lead.ai_summary || lead.subject || 'Inget ämne'}
+                <div key={lead.id} className="border-b last:border-0 pb-3 last:pb-0">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm sm:text-base">
+                        {lead.ai_summary || lead.subject || 'Inget ämne'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {lead.created_at ? format(new Date(lead.created_at), 'd MMM yyyy', { locale: sv }) : ''}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {lead.created_at ? format(new Date(lead.created_at), 'd MMM yyyy', { locale: sv }) : ''}
+                    <div className="flex flex-col gap-1 items-end shrink-0">
+                      {lead.status && <Badge variant="outline" className="text-xs">{lead.status}</Badge>}
+                      {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1 items-end shrink-0">
-                    {lead.status && <Badge variant="outline" className="text-xs">{lead.status}</Badge>}
-                    {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
-                  </div>
+                  {lead.description && (
+                    <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap">
+                      {lead.description}
+                    </p>
+                  )}
                 </div>
               ))
             )}
