@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { formatCustomerName } from '../lib/formatName';
 import { StatusBadge } from './StatusBadge';
 import { Button } from "./ui/button";
-import { User, Mail, Phone, Calendar, Clock, Tag } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Clock, Tag, Anchor, Wrench, Sparkles, AlertCircle } from 'lucide-react';
+import { Badge } from './ui/badge';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 
@@ -93,6 +94,74 @@ export function LeadCard({ lead }) {
       {lead.description && (
         <div className="bg-muted/30 rounded-lg p-3">
           <p className="text-sm">{lead.description}</p>
+        </div>
+      )}
+
+      {/* AI Insights */}
+      {(lead.ai_summary || lead.ai_category || lead.extracted_data) && (
+        <div className="bg-gradient-to-br from-purple-50/50 to-blue-50/50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-lg p-4 space-y-3 border border-purple-200/30">
+          <div className="flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-300">
+            <Sparkles className="h-4 w-4" />
+            <span>AI-analys</span>
+          </div>
+
+          {/* AI Summary */}
+          {lead.ai_summary && (
+            <p className="text-sm">{lead.ai_summary}</p>
+          )}
+
+          {/* AI Category & Priority */}
+          <div className="flex flex-wrap gap-2">
+            {lead.ai_category && (
+              <Badge variant="secondary" className="text-xs">
+                {lead.ai_category}
+              </Badge>
+            )}
+            {lead.ai_priority && (
+              <Badge variant={lead.ai_priority === 'high' ? 'destructive' : 'outline'} className="text-xs">
+                {lead.ai_priority === 'high' ? 'Brådskande' : lead.ai_priority === 'medium' ? 'Normal' : 'Låg'}
+              </Badge>
+            )}
+          </div>
+
+          {/* Extracted Boat/Motor Data */}
+          {lead.extracted_data && Object.keys(lead.extracted_data).length > 0 && (
+            <div className="pt-2 border-t border-purple-200/30 space-y-2">
+              {(lead.extracted_data.boat_make || lead.extracted_data.boat_model) && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Anchor className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>
+                    <strong>Båt:</strong> {[lead.extracted_data.boat_make, lead.extracted_data.boat_model, lead.extracted_data.boat_year].filter(Boolean).join(' ')}
+                  </span>
+                </div>
+              )}
+              {(lead.extracted_data.engine_make || lead.extracted_data.engine_model) && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>
+                    <strong>Motor:</strong> {[lead.extracted_data.engine_make, lead.extracted_data.engine_model, lead.extracted_data.engine_year].filter(Boolean).join(' ')}
+                  </span>
+                </div>
+              )}
+              {lead.extracted_data.service_type && (
+                <div className="text-sm">
+                  <strong>Tjänst:</strong> {lead.extracted_data.service_type}
+                </div>
+              )}
+              {lead.extracted_data.problem_description && (
+                <div className="text-sm text-muted-foreground italic">
+                  "{lead.extracted_data.problem_description}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI Confidence */}
+          {lead.ai_confidence && (
+            <div className="text-xs text-muted-foreground">
+              AI-säkerhet: {Math.round(lead.ai_confidence * 100)}%
+            </div>
+          )}
         </div>
       )}
 
