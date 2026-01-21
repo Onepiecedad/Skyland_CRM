@@ -7,8 +7,10 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
+import { toast } from 'sonner';
 import {
     AlertCircle,
     RefreshCw,
@@ -20,7 +22,8 @@ import {
     Plus,
     Calendar,
     Wrench,
-    User
+    User,
+    Trash2
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -80,6 +83,18 @@ export const JobList = () => {
     useEffect(() => {
         fetchJobs();
     }, []);
+
+    const handleDeleteJob = async (jobId, jobTitle) => {
+        try {
+            await jobsAPI.delete(jobId);
+            toast.success('Jobbet har tagits bort');
+            fetchJobs();
+        } catch (err) {
+            console.error('Error deleting job:', err);
+            toast.error('Kunde inte ta bort jobbet');
+            throw err;
+        }
+    };
 
     // Filter and sort
     const filteredAndSorted = useMemo(() => {
@@ -412,8 +427,19 @@ export const JobList = () => {
                                                     <span className="text-muted-foreground text-sm">-</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <DeleteConfirmDialog
+                                                        title="Ta bort jobb"
+                                                        description={`Är du säker på att du vill ta bort "${job.title}"? Alla tillhörande artiklar och timmar tas också bort. Åtgärden kan inte ångras.`}
+                                                        onConfirm={() => handleDeleteJob(job.id, job.title)}
+                                                    >
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </DeleteConfirmDialog>
+                                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}

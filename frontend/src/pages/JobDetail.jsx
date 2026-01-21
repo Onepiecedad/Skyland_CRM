@@ -3,7 +3,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { jobsAPI, jobItemsAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { Breadcrumbs } from '../components/Breadcrumbs';
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -241,6 +243,18 @@ export const JobDetail = () => {
 
     const calculateTotal = () => {
         return items.reduce((sum, item) => sum + (parseFloat(item.total_price) || 0), 0);
+    };
+
+    const handleDeleteJob = async () => {
+        try {
+            await jobsAPI.delete(id);
+            toast.success('Jobbet har tagits bort');
+            navigate('/jobb');
+        } catch (err) {
+            console.error('Error deleting job:', err);
+            toast.error('Kunde inte ta bort jobbet');
+            throw err;
+        }
     };
 
     if (loading) {
@@ -808,6 +822,28 @@ export const JobDetail = () => {
                                     </p>
                                 </div>
                             )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Delete Job */}
+                    <Card className="border-destructive/30">
+                        <CardHeader>
+                            <CardTitle className="text-destructive">Farozon</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground mb-4">
+                                Att ta bort ett jobb är permanent och kan inte ångras. Alla tillhörande artiklar och timmar tas också bort.
+                            </p>
+                            <DeleteConfirmDialog
+                                title="Ta bort jobb"
+                                description={`Är du säker på att du vill ta bort "${job.title}"? Detta inkluderar alla artiklar och timmar. Åtgärden kan inte ångras.`}
+                                onConfirm={handleDeleteJob}
+                            >
+                                <Button variant="destructive" className="w-full">
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Ta bort jobb
+                                </Button>
+                            </DeleteConfirmDialog>
                         </CardContent>
                     </Card>
                 </div>

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Button } from './ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function DeleteConfirmDialog({ 
-  title = "Delete Item", 
-  description = "This action cannot be undone.", 
-  onConfirm, 
+export function DeleteConfirmDialog({
+  title = "Delete Item",
+  description = "This action cannot be undone.",
+  onConfirm,
   children,
   variant = "destructive"
 }) {
@@ -41,13 +40,13 @@ export function DeleteConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>Avbryt</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={loading}
             className="bg-destructive hover:bg-destructive/90"
           >
-            {loading ? 'Deleting...' : 'Delete'}
+            {loading ? 'Tar bort...' : 'Ta bort'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
