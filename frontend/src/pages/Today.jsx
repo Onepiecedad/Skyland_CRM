@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
+import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
@@ -109,6 +110,12 @@ export const Today = () => {
         fetchDashboardData();
     }, []);
 
+    // Pull-to-refresh
+    const { pullDistance, isRefreshing, handlers } = usePullToRefresh({
+        onRefresh: fetchDashboardData,
+        threshold: 80
+    });
+
     if (loading) return (
         <div className="min-h-screen bg-background flex flex-col">
             <Header />
@@ -142,8 +149,9 @@ export const Today = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-background flex flex-col" {...handlers}>
             <Header />
+            <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
             <main className="flex-1 container mx-auto px-4 py-4 sm:py-8 space-y-4 sm:space-y-8">
                 {/* Snabbstatistik */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">

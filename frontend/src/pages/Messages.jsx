@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { messagesAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
+import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -254,6 +255,12 @@ export const Messages = () => {
         }
     };
 
+    // Pull-to-refresh
+    const { pullDistance, isRefreshing, handlers } = usePullToRefresh({
+        onRefresh: fetchMessages,
+        threshold: 80
+    });
+
     const toggleExpand = async (id, message) => {
         setExpandedIds(prev => {
             const newSet = new Set(prev);
@@ -407,8 +414,9 @@ export const Messages = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-background flex flex-col" {...handlers}>
             <Header />
+            <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
             <main className="flex-1 container mx-auto px-4 py-4 sm:py-6">
                 <div className="flex flex-col gap-4 sm:gap-6">
                     {/* Header */}
@@ -539,8 +547,8 @@ export const Messages = () => {
                                     <Card
                                         key={message.id}
                                         className={`hover:shadow-sm transition-shadow ${message.direction === 'inbound' && !message.seen
-                                                ? 'border-l-4 border-l-primary bg-primary/5'
-                                                : ''
+                                            ? 'border-l-4 border-l-primary bg-primary/5'
+                                            : ''
                                             }`}
                                     >
                                         <CardContent className="p-3 sm:p-4">
@@ -557,8 +565,8 @@ export const Messages = () => {
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                 <span className={`text-sm sm:text-base ${message.direction === 'inbound' && !message.seen
-                                                                        ? 'font-semibold'
-                                                                        : 'font-medium'
+                                                                    ? 'font-semibold'
+                                                                    : 'font-medium'
                                                                     }`}>
                                                                     {subject}
                                                                 </span>

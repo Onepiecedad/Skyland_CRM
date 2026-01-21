@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatCustomerName } from '../lib/formatName';
+import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -71,6 +72,12 @@ export const CustomerList = () => {
     useEffect(() => {
         fetchCustomers();
     }, []);
+
+    // Pull-to-refresh
+    const { pullDistance, isRefreshing, handlers } = usePullToRefresh({
+        onRefresh: fetchCustomers,
+        threshold: 80
+    });
 
     // Filter and sort
     const filteredAndSorted = useMemo(() => {
@@ -287,7 +294,8 @@ export const CustomerList = () => {
     }
 
     return (
-        <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6" {...handlers}>
+            <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Kunder</h1>
