@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatCustomerName } from '../lib/formatName';
 import { Timeline } from '../components/Timeline';
+import { Breadcrumbs } from '../components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -235,6 +236,14 @@ export const CustomerDetail = () => {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { label: 'Kunder', href: '/kunder' },
+          { label: formatCustomerName(customer.name, customer.email) }
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -514,11 +523,16 @@ export const CustomerDetail = () => {
 
         {/* Jobb */}
         <Card>
-          <CardHeader className="pb-2 sm:pb-4">
+          <CardHeader className="pb-2 sm:pb-4 flex flex-row items-center justify-between">
             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               Jobb
             </CardTitle>
+            <Button variant="outline" size="sm" asChild>
+              <Link to={`/jobb/nytt?customer=${id}`}>
+                + Nytt jobb
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {jobs.length === 0 ? (

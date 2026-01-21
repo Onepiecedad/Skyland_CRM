@@ -60,6 +60,7 @@ export const JobList = () => {
     const [sortField, setSortField] = useState('scheduled_date');
     const [sortDirection, setSortDirection] = useState('asc');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [jobTypeFilter, setJobTypeFilter] = useState('all');
 
     const fetchJobs = async () => {
         setLoading(true);
@@ -87,6 +88,11 @@ export const JobList = () => {
         // Filter by status
         if (statusFilter !== 'all') {
             result = result.filter(j => j.status === statusFilter);
+        }
+
+        // Filter by job type
+        if (jobTypeFilter !== 'all') {
+            result = result.filter(j => j.job_type === jobTypeFilter);
         }
 
         // Filter by search query
@@ -133,7 +139,7 @@ export const JobList = () => {
         });
 
         return result;
-    }, [jobs, searchQuery, sortField, sortDirection, statusFilter]);
+    }, [jobs, searchQuery, sortField, sortDirection, statusFilter, jobTypeFilter]);
 
     const handleSort = (field) => {
         if (sortField === field) {
@@ -262,6 +268,28 @@ export const JobList = () => {
                         >
                             Klara
                         </Button>
+                    </div>
+
+                    {/* Job Type filter */}
+                    <div className="flex flex-wrap gap-2">
+                        <span className="text-sm text-muted-foreground flex items-center mr-2">Typ:</span>
+                        <Button
+                            variant={jobTypeFilter === 'all' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            onClick={() => setJobTypeFilter('all')}
+                        >
+                            Alla
+                        </Button>
+                        {Object.entries(JOB_TYPE_LABELS).map(([key, label]) => (
+                            <Button
+                                key={key}
+                                variant={jobTypeFilter === key ? 'secondary' : 'ghost'}
+                                size="sm"
+                                onClick={() => setJobTypeFilter(key)}
+                            >
+                                {label}
+                            </Button>
+                        ))}
                     </div>
                 </CardContent>
             </Card>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { jobsAPI, jobItemsAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
+import { Breadcrumbs } from '../components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -237,6 +238,14 @@ export const JobDetail = () => {
 
     return (
         <div className="container mx-auto p-4 sm:p-6 space-y-6">
+            {/* Breadcrumbs */}
+            <Breadcrumbs
+                items={[
+                    { label: 'Jobb', href: '/jobb' },
+                    { label: job.title || 'Jobb' }
+                ]}
+            />
+
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">

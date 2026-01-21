@@ -26,6 +26,7 @@ export const Header = () => {
 
     const navItems = [
         { path: '/', label: 'Idag', icon: Home },
+        { path: '/leads', label: 'Leads', icon: Search },
         { path: '/jobb', label: 'Jobb', icon: Wrench },
         { path: '/meddelanden', label: 'Meddelanden', icon: Mail },
         { path: '/kunder', label: 'Kunder', icon: Users },

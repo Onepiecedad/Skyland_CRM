@@ -196,6 +196,7 @@ export const Messages = () => {
     const [sortDirection, setSortDirection] = useState('desc');
     const [expandedIds, setExpandedIds] = useState(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+    const [directionFilter, setDirectionFilter] = useState('all'); // 'all', 'inbound', 'outbound'
     const [showReplyDialog, setShowReplyDialog] = useState(false);
     const [replyMessage, setReplyMessage] = useState('');
     const [replyToMessage, setReplyToMessage] = useState(null);
@@ -352,20 +353,34 @@ export const Messages = () => {
         }
     };
 
-    // Filter messages based on search query
+    // Filter messages based on search query and direction
     const filteredMessages = useMemo(() => {
-        if (!searchQuery.trim()) return messages;
+        let result = messages;
 
-        const query = searchQuery.toLowerCase();
-        return messages.filter(msg =>
-            (msg.subject || '').toLowerCase().includes(query) ||
-            (msg.from_name || '').toLowerCase().includes(query) ||
-            (msg.from_email || '').toLowerCase().includes(query) ||
-            (msg.body_preview || '').toLowerCase().includes(query) ||
-            (msg.body_full || '').toLowerCase().includes(query) ||
-            (msg.customers?.name || '').toLowerCase().includes(query)
-        );
-    }, [messages, searchQuery]);
+        // Filter by direction
+        if (directionFilter !== 'all') {
+            result = result.filter(msg => msg.direction === directionFilter);
+        }
+
+        // Filter by search query
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            result = result.filter(msg =>
+                (msg.subject || '').toLowerCase().includes(query) ||
+                (msg.from_name || '').toLowerCase().includes(query) ||
+                (msg.from_email || '').toLowerCase().includes(query) ||
+                (msg.body_preview || '').toLowerCase().includes(query) ||
+                (msg.body_full || '').toLowerCase().includes(query) ||
+                (msg.customers?.name || '').toLowerCase().includes(query)
+            );
+        }
+
+        return result;
+    }, [messages, searchQuery, directionFilter]);
+
+    // Count messages by direction
+    const inboundCount = messages.filter(m => m.direction === 'inbound').length;
+    const outboundCount = messages.filter(m => m.direction === 'outbound').length;
 
     const SortButton = ({ field, label, shortLabel }) => (
         <Button
@@ -393,6 +408,37 @@ export const Messages = () => {
                         <div className="text-xs sm:text-sm text-muted-foreground">
                             {filteredMessages.length} av {messages.length} st
                         </div>
+                    </div>
+
+                    {/* Direction Filter Tabs */}
+                    <div className="flex gap-1 sm:gap-2 border-b">
+                        <button
+                            onClick={() => setDirectionFilter('all')}
+                            className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors ${directionFilter === 'all'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            Alla ({messages.length})
+                        </button>
+                        <button
+                            onClick={() => setDirectionFilter('inbound')}
+                            className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors ${directionFilter === 'inbound'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            Inbox ({inboundCount})
+                        </button>
+                        <button
+                            onClick={() => setDirectionFilter('outbound')}
+                            className={`px-3 sm:px-4 py-2 text-sm font-medium border-b-2 transition-colors ${directionFilter === 'outbound'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            Skickat ({outboundCount})
+                        </button>
                     </div>
 
                     {/* Search */}

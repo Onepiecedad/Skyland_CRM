@@ -1,5 +1,138 @@
 # Utvecklingslogg
 
+## 2026-01-21 - UX-Förbättringar: Fullständig Implementation
+
+### 📋 Projektöversikt
+
+**Mål:** Förbättra användarupplevelsen genom bättre navigation, funktioner och visuell design.
+
+**Status:** 🔄 PÅGÅR
+
+### Prioriterad Implementationslista
+
+| # | Uppgift | Prioritet | Status | Notering |
+|---|---------|-----------|--------|----------|
+| 1 | Lägg till "Leads" i huvudnavigationen | 🔴 Hög | ✅ KLAR | |
+| 2 | Olästa-indikator på meddelanden (badge) | 🔴 Hög | ⬜ Väntar | Kräver DB-fält |
+| 3 | "Nytt jobb"-knapp på kundsidan | 🔴 Hög | ✅ KLAR | |
+| 4 | Inbox/Skickat-flikar på meddelandesidan | 🔴 Hög | ✅ KLAR | |
+| 5 | Bottom navigation för mobil | 🟡 Medel | ⬜ Väntar | Fixed bottom nav |
+| 6 | Snabbstatusändring på leads | 🟡 Medel | ⬜ Väntar | ✓-knapp för "hanterad" |
+| 7 | Lägg till/redigera båtar (CRUD) | 🟡 Medel | ⬜ Väntar | |
+| 8 | Breadcrumbs på detaljsidor | 🟡 Medel | ✅ KLAR | |
+| 9 | Jobbtyp-filter på jobblistan | 🟡 Medel | ✅ KLAR | |
+| 10 | Snabbstatusknappar på jobbdetalj | 🟡 Medel | ⬜ Väntar | "Starta"→"Klar"→"Fakturera" |
+| 11 | Loading skeletons | 🟢 Låg | ⬜ Väntar | |
+| 12 | Tomma-tillstånd illustrationer | 🟢 Låg | ⬜ Väntar | |
+| 13 | Pull-to-refresh på mobil | 🟢 Låg | ⬜ Väntar | |
+| 14 | Ta bort oanvänd Navigation.jsx | 🟢 Låg | ✅ KLAR | |
+
+**Framsteg:** 6/14 uppgifter klara (43%)
+
+---
+
+### Implementation Log
+
+#### Uppgift 1: Leads i huvudnavigationen ✅
+
+**Status:** KLAR | **Tid:** 2026-01-21 15:50
+
+**Ändringar:**
+
+- `Header.jsx`: Lade till `/leads` i navItems med Search-ikon
+- `App.jsx`: Importerade LeadsPage och skapade skyddad route `/leads`
+
+**Filer ändrade:**
+
+- `frontend/src/components/Header.jsx`
+- `frontend/src/App.jsx`
+
+---
+
+#### Uppgift 3: "Nytt jobb"-knapp på kundsidan ✅
+
+**Status:** KLAR | **Tid:** 2026-01-21 15:55
+
+**Ändringar:**
+
+- Lade till "Nytt jobb"-knapp i jobb-sektionens CardHeader på CustomerDetail
+- Knappen länkar till `/jobb/nytt?customer={id}` för att förifylla kund
+
+**Filer ändrade:**
+
+- `frontend/src/pages/CustomerDetail.jsx`
+
+---
+
+#### Uppgift 4: Inbox/Skickat-flikar på meddelandesidan ✅
+
+**Status:** KLAR | **Tid:** 2026-01-21 16:00
+
+**Ändringar:**
+
+- Lade till `directionFilter` state med värden 'all', 'inbound', 'outbound'
+- Skapade visuella flikar: "Alla (X)", "Inbox (X)", "Skickat (X)"
+- Uppdaterade `filteredMessages` för att inkludera direction-filter
+- Flikarna visar antal meddelanden per kategori
+
+**Filer ändrade:**
+
+- `frontend/src/pages/Messages.jsx`
+
+---
+
+#### Uppgift 8: Breadcrumbs på detaljsidor ✅
+
+**Status:** KLAR | **Tid:** 2026-01-21 16:02
+
+**Ändringar:**
+
+- Skapade ny `Breadcrumbs.jsx` komponent med Home-ikon och stöd för länkar
+- Lade till breadcrumbs på CustomerDetail: Hem → Kunder → [Kundnamn]
+- Lade till breadcrumbs på JobDetail: Hem → Jobb → [Jobbtitel]
+
+**Filer skapade:**
+
+- `frontend/src/components/Breadcrumbs.jsx`
+
+**Filer ändrade:**
+
+- `frontend/src/pages/CustomerDetail.jsx`
+- `frontend/src/pages/JobDetail.jsx`
+
+---
+
+#### Uppgift 14: Ta bort oanvänd Navigation.jsx ✅
+
+**Status:** KLAR | **Tid:** 2026-01-21 16:02
+
+**Ändringar:**
+
+- Raderade `Navigation.jsx` som inte användes (Header.jsx hanterar navigationen)
+- Verifierade att ingen fil importerade komponenten
+
+**Filer borttagna:**
+
+- `frontend/src/components/Navigation.jsx`
+
+---
+
+#### Uppgift 9: Jobbtyp-filter på jobblistan ✅
+
+**Status:** KLAR | **Tid:** 2026-01-21 16:04
+
+**Ändringar:**
+
+- Lade till `jobTypeFilter` state
+- Uppdaterade `filteredAndSorted` för att filtrera baserat på jobbtyp
+- Lade till UI-knappar för att välja jobbtyp (Service, Reparation, Installation, etc.)
+
+**Filer ändrade:**
+
+- `frontend/src/pages/JobList.jsx`
+
+---
+
 ## 2026-01-20 (em) - Fix: HTML/CSS visas i meddelandetext
 
 ### Problem identifierat
