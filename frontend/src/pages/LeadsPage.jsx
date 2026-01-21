@@ -1,56 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { leadsAPI } from '../lib/api';
+import { formatCustomerName } from '../lib/formatName';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { Skeleton } from '../components/ui/skeleton';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogClose } from '../components/ui/dialog';
 import { LeadCard } from '../components/LeadCard';
 import { LeadForm } from '../components/forms/LeadForm';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
-import { Filter, Users, TrendingUp, Clock, CheckCircle, Plus, Edit, Trash2 } from 'lucide-react';
+import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
+import { Users, TrendingUp, Clock, CheckCircle, Plus, Edit, Trash2, Mail, Phone, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { sv } from 'date-fns/locale';
 
 export function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalError, setModalError] = useState(null);
-  // Add modalLoading state to fix 'modalLoading is not defined' error
   const [modalLoading, setModalLoading] = useState(false);
-
-  const openLeadModal = async (leadId) => {
-    setModalOpen(true);
-    setModalLoading(true);
-    setModalError(null);
-    try {
-      const response = await leadsAPI.getAll({ lead_id: leadId });
-      // leadsAPI.getAll returns an array, so find the lead by id
-      const found = response.data.find(l => l.lead_id === leadId);
-      setSelectedLead(found || null);
-      if (!found) setModalError("Lead not found");
-    } catch (err) {
-      setModalError("Failed to load lead");
-      setSelectedLead(null);
-    } finally {
-      setModalLoading(false);
-    }
-  };
-  const closeLeadModal = () => {
-    setModalOpen(false);
-    setSelectedLead(null);
-    setModalError(null);
-  };
   const [leads, setLeads] = useState([]);
+  const [customers, setCustomers] = useState({});
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [intentFilter, setIntentFilter] = useState('all');
-  const [urgencyFilter, setUrgencyFilter] = useState('all');
-  const [channelFilter, setChannelFilter] = useState('all');
   const [sortBy, setSortBy] = useState('updated_at desc');
 
   const fetchLeads = async () => {
@@ -58,18 +36,30 @@ export function LeadsPage() {
       setLoading(true);
       const params = {
         status: statusFilter === 'all' ? undefined : statusFilter,
-        intent: intentFilter === 'all' ? undefined : intentFilter,
-        urgency: urgencyFilter === 'all' ? undefined : urgencyFilter,
-        channel: channelFilter === 'all' ? undefined : channelFilter,
         sort: sortBy,
         limit: 100
       };
 
       const response = await leadsAPI.getAll(params);
-      setLeads(response.data);
+      setLeads(response.data || []);
+
+      // Fetch customer names for all unique customer_ids
+      const customerIds = [...new Set((response.data || []).map(l => l.customer_id).filter(Boolean))];
+      if (customerIds.length > 0) {
+        const { data: customersData } = await supabase
+          .from('customers')
+          .select('id, name, email, phone')
+          .in('id', customerIds);
+
+        const customersMap = {};
+        (customersData || []).forEach(c => {
+          customersMap[c.id] = c;
+        });
+        setCustomers(customersMap);
+      }
     } catch (error) {
       console.error('Error fetching leads:', error);
-      toast.error('Failed to fetch leads');
+      toast.error('Kunde inte hämta förfrågningar');
     } finally {
       setLoading(false);
     }
@@ -77,30 +67,62 @@ export function LeadsPage() {
 
   useEffect(() => {
     fetchLeads();
-  }, [statusFilter, intentFilter, urgencyFilter, channelFilter, sortBy]);
+  }, [statusFilter, sortBy]);
 
-  const handleLeadSuccess = (updatedLead) => {
-    // Refresh the leads list
+  // Pull-to-refresh
+  const { pullDistance, isRefreshing, handlers } = usePullToRefresh({
+    onRefresh: fetchLeads,
+    threshold: 80
+  });
+
+  const openLeadModal = async (leadId) => {
+    setModalOpen(true);
+    setModalLoading(true);
+    setModalError(null);
+    try {
+      const response = await leadsAPI.getAll({ lead_id: leadId });
+      const found = response.data.find(l => l.lead_id === leadId);
+      setSelectedLead(found || null);
+      if (!found) setModalError("Förfrågan hittades inte");
+    } catch (err) {
+      setModalError("Kunde inte ladda förfrågan");
+      setSelectedLead(null);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const closeLeadModal = () => {
+    setModalOpen(false);
+    setSelectedLead(null);
+    setModalError(null);
+  };
+
+  const handleLeadSuccess = () => {
     fetchLeads();
   };
 
   const handleDeleteLead = async (leadId) => {
     try {
       await leadsAPI.delete(leadId);
-      toast.success('Lead deleted successfully');
-      fetchLeads(); // Refresh the list
+      toast.success('Förfrågan borttagen');
+      fetchLeads();
     } catch (error) {
       console.error('Error deleting lead:', error);
-      throw error; // Re-throw to be caught by DeleteConfirmDialog
+      throw error;
     }
   };
 
-  // Quick status change for leads
   const handleQuickStatusChange = async (e, leadId, newStatus) => {
-    e.stopPropagation(); // Prevent opening modal
+    e.stopPropagation();
     try {
       await leadsAPI.update(leadId, { status: newStatus });
-      toast.success(`Lead markerad som ${newStatus}`);
+      const statusLabels = {
+        qualified: 'kvalificerad',
+        won: 'vunnen',
+        lost: 'förlorad'
+      };
+      toast.success(`Förfrågan markerad som ${statusLabels[newStatus] || newStatus}`);
       fetchLeads();
     } catch (error) {
       console.error('Error updating lead status:', error);
@@ -109,17 +131,33 @@ export function LeadsPage() {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    if (!dateString) return '-';
+    try {
+      return format(new Date(dateString), 'd MMM yyyy', { locale: sv });
+    } catch {
+      return '-';
+    }
   };
 
-  const truncateText = (text, maxLength = 150) => {
-    if (!text) return '-';
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  const getCustomerDisplayName = (customerId) => {
+    const customer = customers[customerId];
+    if (!customer) return null;
+    return formatCustomerName(customer.name) || customer.email || 'Okänd kund';
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      new: 'Ny',
+      open: 'Öppen',
+      pending: 'Väntar',
+      qualified: 'Kvalificerad',
+      proposal: 'Offert skickad',
+      won: 'Vunnen',
+      lost: 'Förlorad',
+      on_hold: 'Pausad',
+      archived: 'Arkiverad'
+    };
+    return labels[status] || status;
   };
 
   // Calculate stats
@@ -132,25 +170,23 @@ export function LeadsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-4 md:p-6">
-        <div className="flex flex-col md:flex-row justify-between items-center">
+      <div className="space-y-4 p-4" {...handlers}>
+        <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <Skeleton className="h-8 w-40 mb-2" />
-            <Skeleton className="h-4 w-64" />
+            <Skeleton className="h-4 w-52" />
           </div>
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-32" />
-            <Skeleton className="h-6 w-24" />
-          </div>
+          <Skeleton className="h-10 w-32" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full mb-2" />
+            <Skeleton key={i} className="h-20" />
           ))}
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-6">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-32 w-full mb-2" />
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-28" />
           ))}
         </div>
       </div>
@@ -158,230 +194,229 @@ export function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 p-4" {...handlers}>
+      <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Leads</h1>
-          <p className="text-muted-foreground mb-4">Track and manage all sales opportunities</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Förfrågningar</h1>
+          <p className="text-sm text-muted-foreground">Hantera inkommande förfrågningar och offertförslag</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <LeadForm onSuccess={handleLeadSuccess}>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Lead
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Ny förfrågan</span>
+              <span className="sm:hidden">Ny</span>
             </Button>
           </LeadForm>
-          <div className="text-sm text-muted-foreground">
-            {leads.length} leads
-          </div>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {leads.length} st
+          </span>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Totalt</p>
+                <p className="text-xl sm:text-2xl font-bold">{stats.total}</p>
+              </div>
+              <Users className="h-5 w-5 text-muted-foreground hidden sm:block" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open/Active</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.open}</div>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Aktiva</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.open}</p>
+              </div>
+              <Clock className="h-5 w-5 text-muted-foreground hidden sm:block" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Qualified</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.qualified}</div>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Kvalificerade</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">{stats.qualified}</p>
+              </div>
+              <TrendingUp className="h-5 w-5 text-muted-foreground hidden sm:block" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Won</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.won}</div>
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Vunna</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.won}</p>
+              </div>
+              <CheckCircle className="h-5 w-5 text-muted-foreground hidden sm:block" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 p-4 bg-muted/30 rounded-lg">
+      <div className="flex flex-wrap gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full md:w-[150px]">
+          <SelectTrigger className="w-[130px] h-9 text-sm">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="new">New</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="qualified">Qualified</SelectItem>
-            <SelectItem value="proposal">Proposal</SelectItem>
-            <SelectItem value="won">Won</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-            <SelectItem value="on_hold">On Hold</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={intentFilter} onValueChange={setIntentFilter}>
-          <SelectTrigger className="w-full md:w-[150px]">
-            <SelectValue placeholder="Intent" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Intent</SelectItem>
-            <SelectItem value="contact">Contact</SelectItem>
-            <SelectItem value="quote">Quote</SelectItem>
-            <SelectItem value="booking">Booking</SelectItem>
-            <SelectItem value="diagnostic">Diagnostic</SelectItem>
-            <SelectItem value="service_request">Service Request</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-          <SelectTrigger className="w-full md:w-[150px]">
-            <SelectValue placeholder="Urgency" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Urgency</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-            <SelectItem value="urgent">Urgent</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={channelFilter} onValueChange={setChannelFilter}>
-          <SelectTrigger className="w-full md:w-[150px]">
-            <SelectValue placeholder="Channel" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Channels</SelectItem>
-            <SelectItem value="webform">Web Form</SelectItem>
-            <SelectItem value="email">Email</SelectItem>
-            <SelectItem value="phone">Phone</SelectItem>
-            <SelectItem value="referral">Referral</SelectItem>
+            <SelectItem value="all">Alla status</SelectItem>
+            <SelectItem value="new">Ny</SelectItem>
+            <SelectItem value="open">Öppen</SelectItem>
+            <SelectItem value="pending">Väntar</SelectItem>
+            <SelectItem value="qualified">Kvalificerad</SelectItem>
+            <SelectItem value="won">Vunnen</SelectItem>
+            <SelectItem value="lost">Förlorad</SelectItem>
           </SelectContent>
         </Select>
 
         <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full md:w-[200px]">
-            <SelectValue placeholder="Sort by" />
+          <SelectTrigger className="w-[150px] h-9 text-sm">
+            <SelectValue placeholder="Sortering" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="updated_at desc">Recently Updated</SelectItem>
-            <SelectItem value="created_at desc">Recently Created</SelectItem>
-            <SelectItem value="expected_close_date asc">Close Date (Soon)</SelectItem>
-            <SelectItem value="expected_close_date desc">Close Date (Far)</SelectItem>
+            <SelectItem value="updated_at desc">Senast uppdaterad</SelectItem>
+            <SelectItem value="created_at desc">Senast skapad</SelectItem>
+            <SelectItem value="created_at asc">Äldst först</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Card List */}
+      {/* Lead List */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-3">
           {leads.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-muted-foreground">
-              No leads found matching your criteria
-            </div>
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium">Inga förfrågningar</p>
+                <p className="text-sm">Det finns inga förfrågningar som matchar dina filter</p>
+              </CardContent>
+            </Card>
           ) : (
-            leads.map((lead) => (
-              <div key={lead.lead_id} className="bg-card rounded-xl shadow p-6 flex flex-col gap-4 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openLeadModal(lead.lead_id)}>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold">{lead.summary || 'Untitled Lead'}</span>
-                  <StatusBadge status={lead.status} type="lead" />
-                </div>
-                <div className="text-sm text-muted-foreground mb-2">
-                  {truncateText(lead.description, 120)}
-                </div>
-                <div className="flex flex-wrap gap-4">
-                  <div>
-                    <span className="font-medium">Customer:</span>{' '}
-                    <span className="text-primary">{lead.customer_id}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium">Intent:</span>{' '}
-                    <Badge variant="outline">{lead.intent || 'N/A'}</Badge>
-                  </div>
-                  <div>
-                    <span className="font-medium">Urgency:</span>{' '}
-                    <StatusBadge status={lead.urgency} type="urgency" />
-                  </div>
-                  <div>
-                    <span className="font-medium">Channel:</span>{' '}
-                    <Badge variant="outline">{lead.channel || 'N/A'}</Badge>
-                  </div>
-                  <div>
-                    <span className="font-medium">Expected Close:</span>{' '}
-                    {formatDate(lead.expected_close_date)}
-                  </div>
-                  <div>
-                    <span className="font-medium">Created:</span>{' '}
-                    {formatDate(lead.created_at)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-2" onClick={e => e.stopPropagation()}>
-                  {/* Quick status buttons */}
-                  {lead.status !== 'qualified' && lead.status !== 'won' && lead.status !== 'lost' && (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'qualified')}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Kvalificera
-                    </Button>
-                  )}
-                  {lead.status === 'qualified' && (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'won')}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Vunnen
-                    </Button>
-                  )}
-                  <Button asChild size="sm" variant="outline">
-                    <Link to={`/customers/${lead.customer_id}`}>View Customer</Link>
-                  </Button>
-                  <LeadForm lead={lead} onSuccess={handleLeadSuccess}>
-                    <Button size="sm" variant="ghost">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </LeadForm>
-                  <DeleteConfirmDialog
-                    title="Delete Lead"
-                    description={`Are you sure you want to delete this lead "${lead.summary || 'Untitled Lead'}"? This action cannot be undone.`}
-                    onConfirm={() => handleDeleteLead(lead.lead_id)}
-                  >
-                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </DeleteConfirmDialog>
-                </div>
-              </div>
-            ))
+            leads.map((lead) => {
+              const customerName = getCustomerDisplayName(lead.customer_id);
+              const customer = customers[lead.customer_id];
+
+              return (
+                <Card
+                  key={lead.lead_id}
+                  className="hover:bg-muted/30 transition-colors cursor-pointer active:bg-muted/50"
+                  onClick={() => openLeadModal(lead.lead_id)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-3">
+                      {/* Header row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm sm:text-base line-clamp-2">
+                            {lead.summary || lead.name || 'Namnlös förfrågan'}
+                          </h3>
+                          {lead.description && (
+                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mt-1">
+                              {lead.description}
+                            </p>
+                          )}
+                        </div>
+                        <StatusBadge status={lead.status} type="lead" />
+                      </div>
+
+                      {/* Customer info */}
+                      {(customerName || customer) && (
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <User className="h-3.5 w-3.5" />
+                            <span className="truncate max-w-[150px] sm:max-w-none">{customerName}</span>
+                          </div>
+                          {customer?.phone && (
+                            <div className="flex items-center gap-1.5 text-muted-foreground hidden sm:flex">
+                              <Phone className="h-3.5 w-3.5" />
+                              <span>{customer.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Footer with date and actions */}
+                      <div className="flex items-center justify-between gap-2 pt-1" onClick={e => e.stopPropagation()}>
+                        <span className="text-xs text-muted-foreground">
+                          Skapad {formatDate(lead.created_at)}
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                          {/* Quick status buttons */}
+                          {lead.status !== 'qualified' && lead.status !== 'won' && lead.status !== 'lost' && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'qualified')}
+                              className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-700"
+                            >
+                              <CheckCircle className="h-3 w-3 sm:mr-1" />
+                              <span className="hidden sm:inline">Kvalificera</span>
+                            </Button>
+                          )}
+                          {lead.status === 'qualified' && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'won')}
+                              className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                            >
+                              <CheckCircle className="h-3 w-3 sm:mr-1" />
+                              <span className="hidden sm:inline">Vunnen</span>
+                            </Button>
+                          )}
+
+                          {customer && (
+                            <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
+                              <Link to={`/kund/${lead.customer_id}`}>
+                                <User className="h-3 w-3 sm:mr-1" />
+                                <span className="hidden sm:inline">Visa kund</span>
+                              </Link>
+                            </Button>
+                          )}
+
+                          <LeadForm lead={lead} onSuccess={handleLeadSuccess}>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          </LeadForm>
+
+                          <DeleteConfirmDialog
+                            title="Ta bort förfrågan"
+                            description={`Är du säker på att du vill ta bort "${lead.summary || lead.name || 'denna förfrågan'}"? Detta kan inte ångras.`}
+                            onConfirm={() => handleDeleteLead(lead.lead_id)}
+                          >
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </DeleteConfirmDialog>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
           )}
         </div>
+
         <DialogContent>
           {modalLoading ? (
             <LoadingSpinner />
@@ -391,7 +426,7 @@ export function LeadsPage() {
             <LeadCard lead={selectedLead} />
           )}
           <DialogClose asChild>
-            <Button variant="outline" className="mt-4" onClick={closeLeadModal}>Close</Button>
+            <Button variant="outline" className="mt-4" onClick={closeLeadModal}>Stäng</Button>
           </DialogClose>
         </DialogContent>
       </Dialog>

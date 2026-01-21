@@ -6,9 +6,9 @@ import { messagesAPI } from '../lib/api';
 
 const navItems = [
     { path: '/', label: 'Idag', icon: Home },
-    { path: '/leads', label: 'Leads', icon: Search },
+    { path: '/leads', label: 'Förfråg.', icon: Search },
     { path: '/jobb', label: 'Jobb', icon: Wrench },
-    { path: '/meddelanden', label: 'Meddelanden', icon: Mail },
+    { path: '/meddelanden', label: 'Inkorgen', icon: Mail },
     { path: '/kunder', label: 'Kunder', icon: Users },
 ];
 
