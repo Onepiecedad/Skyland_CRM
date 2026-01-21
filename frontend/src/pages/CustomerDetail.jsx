@@ -11,7 +11,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin, Wrench, Trash2, StickyNote } from 'lucide-react';
+import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin, Wrench, Trash2, StickyNote, Ship, Plus } from 'lucide-react';
+import { BoatForm } from '../components/forms/BoatForm';
+import { boatsAPI } from '../lib/api';
+import { toast } from 'sonner';
 
 export const CustomerDetail = () => {
   const { id } = useParams();
@@ -457,28 +460,68 @@ export const CustomerDetail = () => {
 
         {/* Båtar */}
         <Card>
-          <CardHeader className="pb-2 sm:pb-4">
-            <CardTitle className="text-base sm:text-lg">Båtar</CardTitle>
+          <CardHeader className="pb-2 sm:pb-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <Ship className="h-4 w-4" />
+              Båtar
+            </CardTitle>
+            <BoatForm customerId={id} onSuccess={fetchData}>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Lägg till
+              </Button>
+            </BoatForm>
           </CardHeader>
           <CardContent className="space-y-3">
             {boats.length === 0 ? (
               <p className="text-muted-foreground text-center py-2 text-sm">Ingen båt registrerad</p>
             ) : (
               boats.map((boat) => (
-                <div key={boat.id} className="p-3 border rounded-lg bg-muted/20">
-                  <div className="font-semibold text-sm sm:text-base">
-                    {boat.name || `${boat.make || ''} ${boat.model || ''}`.trim() || 'Namnlös båt'}
+                <div key={boat.id} className="p-3 border rounded-lg bg-muted/20 flex justify-between items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm sm:text-base">
+                      {boat.name || `${boat.make || ''} ${boat.model || ''}`.trim() || 'Namnlös båt'}
+                    </div>
+                    {boat.model && (
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        {boat.model} {boat.year && `(${boat.year})`}
+                      </div>
+                    )}
+                    {boat.registration_number && (
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        Reg: {boat.registration_number}
+                      </div>
+                    )}
+                    {boat.engine_type && (
+                      <div className="text-xs sm:text-sm mt-1">
+                        Motor: {boat.engine_type}
+                      </div>
+                    )}
                   </div>
-                  {boat.registration_number && (
-                    <div className="text-xs sm:text-sm text-muted-foreground">
-                      Reg: {boat.registration_number}
-                    </div>
-                  )}
-                  {(boat.engine_make || boat.engine_model) && (
-                    <div className="text-xs sm:text-sm mt-1">
-                      Motor: {[boat.engine_make, boat.engine_model].filter(Boolean).join(' ')}
-                    </div>
-                  )}
+                  <div className="flex gap-1 shrink-0">
+                    <BoatForm boat={boat} customerId={id} onSuccess={fetchData}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </BoatForm>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={async () => {
+                        if (!window.confirm('Är du säker på att du vill ta bort denna båt?')) return;
+                        try {
+                          await boatsAPI.delete(boat.id);
+                          toast.success('Båt borttagen');
+                          fetchData();
+                        } catch (error) {
+                          toast.error('Kunde inte ta bort båt');
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))
             )}

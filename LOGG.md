@@ -16,18 +16,18 @@
 | 2 | Olästa-indikator på meddelanden (badge) | 🔴 Hög | ⬜ Väntar | Kräver DB-fält |
 | 3 | "Nytt jobb"-knapp på kundsidan | 🔴 Hög | ✅ KLAR | |
 | 4 | Inbox/Skickat-flikar på meddelandesidan | 🔴 Hög | ✅ KLAR | |
-| 5 | Bottom navigation för mobil | 🟡 Medel | ⬜ Väntar | Fixed bottom nav |
-| 6 | Snabbstatusändring på leads | 🟡 Medel | ⬜ Väntar | ✓-knapp för "hanterad" |
-| 7 | Lägg till/redigera båtar (CRUD) | 🟡 Medel | ⬜ Väntar | |
+| 5 | Bottom navigation för mobil | 🟡 Medel | ✅ KLAR | |
+| 6 | Snabbstatusändring på leads | 🟡 Medel | ✅ KLAR | |
+| 7 | Lägg till/redigera båtar (CRUD) | 🟡 Medel | ✅ KLAR | |
 | 8 | Breadcrumbs på detaljsidor | 🟡 Medel | ✅ KLAR | |
 | 9 | Jobbtyp-filter på jobblistan | 🟡 Medel | ✅ KLAR | |
 | 10 | Snabbstatusknappar på jobbdetalj | 🟡 Medel | ✅ KLAR | |
-| 11 | Loading skeletons | 🟢 Låg | ⬜ Väntar | |
-| 12 | Tomma-tillstånd illustrationer | 🟢 Låg | ⬜ Väntar | |
-| 13 | Pull-to-refresh på mobil | 🟢 Låg | ⬜ Väntar | |
+| 11 | Loading skeletons | 🟢 Låg | ✅ KLAR | |
+| 12 | Tomma-tillstånd illustrationer | 🟢 Låg | ✅ KLAR | |
+| 13 | Pull-to-refresh på mobil | 🟢 Låg | ✅ KLAR | |
 | 14 | Ta bort oanvänd Navigation.jsx | 🟢 Låg | ✅ KLAR | |
 
-**Framsteg:** 7/14 uppgifter klara (50%)
+**Framsteg:** 13/14 uppgifter klara (93%)
 
 ---
 

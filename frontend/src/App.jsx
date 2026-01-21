@@ -12,6 +12,7 @@ import { JobDetail } from './pages/JobDetail';
 import { JobCreate } from './pages/JobCreate';
 import { LeadsPage } from './pages/LeadsPage';
 import { Header } from './components/Header';
+import { BottomNav } from './components/BottomNav';
 
 function App() {
     return (
@@ -112,6 +113,7 @@ function App() {
                         }
                     />
                 </Routes>
+                <BottomNav />
             </BrowserRouter>
             <Toaster />
         </div>

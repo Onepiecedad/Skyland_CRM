@@ -84,3 +84,15 @@ code {
     @apply bg-background text-foreground;
     }
 }
+
+/* Mobile bottom navigation safe area */
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Add padding to main content on mobile to prevent content being hidden by bottom nav */
+@media (max-width: 767px) {
+    main {
+        padding-bottom: 4.5rem; /* Height of bottom nav + some extra space */
+    }
+}

@@ -64,7 +64,7 @@ export function LeadsPage() {
         sort: sortBy,
         limit: 100
       };
-      
+
       const response = await leadsAPI.getAll(params);
       setLeads(response.data);
     } catch (error) {
@@ -92,6 +92,19 @@ export function LeadsPage() {
     } catch (error) {
       console.error('Error deleting lead:', error);
       throw error; // Re-throw to be caught by DeleteConfirmDialog
+    }
+  };
+
+  // Quick status change for leads
+  const handleQuickStatusChange = async (e, leadId, newStatus) => {
+    e.stopPropagation(); // Prevent opening modal
+    try {
+      await leadsAPI.update(leadId, { status: newStatus });
+      toast.success(`Lead markerad som ${newStatus}`);
+      fetchLeads();
+    } catch (error) {
+      console.error('Error updating lead status:', error);
+      toast.error('Kunde inte uppdatera status');
     }
   };
 
@@ -324,6 +337,29 @@ export function LeadsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mt-2" onClick={e => e.stopPropagation()}>
+                  {/* Quick status buttons */}
+                  {lead.status !== 'qualified' && lead.status !== 'won' && lead.status !== 'lost' && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'qualified')}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Kvalificera
+                    </Button>
+                  )}
+                  {lead.status === 'qualified' && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'won')}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Vunnen
+                    </Button>
+                  )}
                   <Button asChild size="sm" variant="outline">
                     <Link to={`/customers/${lead.customer_id}`}>View Customer</Link>
                   </Button>
