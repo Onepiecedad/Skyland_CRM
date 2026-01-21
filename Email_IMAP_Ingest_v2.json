@@ -1,0 +1,324 @@
+{
+    "name": "Email_IMAP_Ingest",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes"
+                        }
+                    ]
+                }
+            },
+            "id": "3e5a489c-e35e-4a7a-828e-9126455d3c00",
+            "name": "Every 5 Minutes",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                -1104,
+                112
+            ]
+        },
+        {
+            "parameters": {
+                "postProcessAction": "nothing",
+                "options": {}
+            },
+            "id": "9d884fbf-acec-4bbd-bede-7f4f71f25d53",
+            "name": "Read Unseen Emails",
+            "type": "n8n-nodes-base.emailReadImap",
+            "typeVersion": 2,
+            "position": [
+                -880,
+                112
+            ],
+            "credentials": {
+                "imap": {
+                    "id": "3uVHEYo75bfytf0c",
+                    "name": "IMAP account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// === EXTRACT AND PROCESS EMAIL DATA ===\n// FIXED v2: Properly parses email addresses from \"Name <email>\" format\n\n// Decode quoted-printable encoding (=XX hex codes)\nfunction decodeQuotedPrintable(text) {\n  if (!text) return '';\n  try {\n    // Replace =XX hex codes with actual characters\n    let decoded = text.replace(/=([0-9A-F]{2})/gi, (match, hex) => {\n      return String.fromCharCode(parseInt(hex, 16));\n    });\n    // Remove soft line breaks (=\\r\\n or =\\n)\n    decoded = decoded.replace(/=\\r?\\n/g, '');\n    return decoded;\n  } catch (e) {\n    console.error('Error decoding quoted-printable:', e);\n    return text;\n  }\n}\n\n// Fix mojibake: UTF-8 text incorrectly decoded as Latin-1\nfunction fixMojibake(text) {\n  if (!text) return '';\n  try {\n    const replacements = [\n      ['Ã¥', 'å'], ['Ã¤', 'ä'], ['Ã¶', 'ö'],\n      ['Ã…', 'Å'], ['Ã„', 'Ä'], ['Ã–', 'Ö'],\n      ['Ã©', 'é'], ['Ã¨', 'è'], ['Ã¼', 'ü'],\n      ['Ã±', 'ñ'], ['Ã³', 'ó'], ['Ã­', 'í']\n    ];\n    let fixed = text;\n    for (const [bad, good] of replacements) {\n      fixed = fixed.split(bad).join(good);\n    }\n    return fixed;\n  } catch (e) {\n    return text;\n  }\n}\n\n// Strip emojis and problematic control characters\nfunction stripProblematicChars(text) {\n  if (!text) return '';\n  return text\n    // Remove C1 control characters (\\x80-\\x9F)\n    .replace(/[\\x80-\\x9F]/g, '')\n    // Remove common mojibake leftovers\n    .replace(/[¨»¿ï¸â]/g, '')\n    // Remove emoji surrogates and variation selectors\n    .replace(/[\\uD800-\\uDFFF]/g, '')\n    .replace(/[\\uFE00-\\uFE0F]/g, '')\n    // Remove control characters except tab, CR, LF\n    .replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]/g, '')\n    // Clean up multiple spaces\n    .replace(/  +/g, ' ')\n    .trim();\n}\n\n// NEW: Parse email from \"Name <email@domain.com>\" format\nfunction parseEmailAddress(rawValue) {\n  if (!rawValue) return { email: '', name: '' };\n  \n  const str = rawValue.trim();\n  \n  // Check for \"Name <email>\" format\n  const match = str.match(/^(.*)\\s*<([^>]+)>\\s*$/);\n  if (match) {\n    return {\n      name: match[1].trim().replace(/^[\"']|[\"']$/g, ''), // Remove quotes\n      email: match[2].trim().toLowerCase()\n    };\n  }\n  \n  // Check if it's just an email address\n  if (str.includes('@') && !str.includes(' ')) {\n    return {\n      name: '',\n      email: str.toLowerCase()\n    };\n  }\n  \n  // Fallback: assume the whole string is the email\n  return {\n    name: '',\n    email: str.toLowerCase()\n  };\n}\n\nfunction simpleHash(str) {\n  let hash = 0;\n  for (let i = 0; i < str.length; i++) {\n    const char = str.charCodeAt(i);\n    hash = ((hash << 5) - hash) + char;\n    hash = hash & hash;\n  }\n  return Math.abs(hash).toString(16).padStart(8, '0');\n}\n\nfunction normalizeMessageId(messageId) {\n  if (!messageId) return null;\n  return messageId\n    .trim()\n    .replace(/[\\r\\n\\t]/g, '')\n    .replace(/^<|>$/g, '');\n}\n\nfunction normalizeEmail(email) {\n  if (!email) return null;\n  let normalized = email.toLowerCase().trim();\n  const atIndex = normalized.indexOf('@');\n  if (atIndex > 0) {\n    const local = normalized.substring(0, atIndex);\n    const domain = normalized.substring(atIndex);\n    const plusIndex = local.indexOf('+');\n    if (plusIndex > 0) {\n      normalized = local.substring(0, plusIndex) + domain;\n    }\n  }\n  return normalized;\n}\n\nfunction generateContentHash(from, subject, bodyPreview) {\n  const fromNorm = (from || '').toLowerCase().trim();\n  const subjectNorm = (subject || '').toLowerCase().trim();\n  const bodyStart = (bodyPreview || '').substring(0, 500).toLowerCase().trim();\n  const bodyLen = (bodyPreview || '').length;\n  \n  const input = `${fromNorm}|${subjectNorm}|${bodyStart}|${bodyLen}`;\n  return simpleHash(input) + simpleHash(input.split('').reverse().join(''));\n}\n\nfunction detectSpam(fromEmail, subject, bodyPreview) {\n  const from = (fromEmail || '').toLowerCase();\n  const subj = (subject || '').toLowerCase();\n  const body = (bodyPreview || '').trim();\n  \n  const noreplyPatterns = ['noreply@', 'no-reply@', 'mailer-daemon@', 'postmaster@', 'bounce@'];\n  if (noreplyPatterns.some(p => from.includes(p))) {\n    return { is_spam: true, spam_reason: 'noreply-address' };\n  }\n  \n  if (body.length < 5) {\n    return { is_spam: true, spam_reason: 'empty-body' };\n  }\n  \n  const autoReplySubjects = ['out of office', 'automatic reply', 'auto:', 'autosvar', 'semester', 'away from'];\n  if (autoReplySubjects.some(p => subj.includes(p))) {\n    return { is_spam: true, spam_reason: 'auto-reply-subject' };\n  }\n  \n  return { is_spam: false, spam_reason: null };\n}\n\nconst results = [];\n\nfor (const item of $input.all()) {\n  const email = item.json;\n  \n  let fromEmail = '';\n  let fromName = '';\n  \n  // FIXED: Properly parse email addresses from various formats\n  if (email.from) {\n    if (email.from.value && email.from.value[0]) {\n      // Best case: parsed by IMAP library\n      fromEmail = email.from.value[0].address || '';\n      fromName = email.from.value[0].name || '';\n    } else if (typeof email.from === 'string') {\n      // String format: parse it\n      const parsed = parseEmailAddress(email.from);\n      fromEmail = parsed.email;\n      fromName = parsed.name;\n    } else if (email.from.text) {\n      // Text format: parse it\n      const parsed = parseEmailAddress(email.from.text);\n      fromEmail = parsed.email;\n      fromName = parsed.name;\n    }\n  }\n  \n  let toEmail = '';\n  if (email.to) {\n    if (email.to.value && email.to.value[0]) {\n      toEmail = email.to.value[0].address || '';\n    } else if (typeof email.to === 'string') {\n      const parsed = parseEmailAddress(email.to);\n      toEmail = parsed.email;\n    } else if (email.to.text) {\n      const parsed = parseEmailAddress(email.to.text);\n      toEmail = parsed.email;\n    }\n  }\n  \n  // Decode and clean text - FIXED order with emoji stripping\n  const rawSubject = email.subject || '';\n  const rawTextBody = email.text || email.textPlain || '';\n  const rawHtmlBody = email.html || email.textHtml || '';\n  const rawFromName = fromName;\n  \n  const subject = stripProblematicChars(fixMojibake(decodeQuotedPrintable(rawSubject)));\n  const textBody = stripProblematicChars(fixMojibake(decodeQuotedPrintable(rawTextBody)));\n  const htmlBody = stripProblematicChars(fixMojibake(decodeQuotedPrintable(rawHtmlBody)));\n  fromName = stripProblematicChars(fixMojibake(decodeQuotedPrintable(rawFromName)));\n  \n  const bodyPreview = (textBody || htmlBody.replace(/<[^>]*>/g, '')).substring(0, 500);\n  const bodyFull = (textBody || htmlBody.replace(/<[^>]*>/g, '')).substring(0, 50000);\n  \n  const rfcMessageId = normalizeMessageId(email.messageId || email['message-id']);\n  const imapUid = email.uid || null;\n  \n  let receivedAt = new Date().toISOString();\n  let dateHeaderMissing = true;\n  if (email.date) {\n    try {\n      receivedAt = new Date(email.date).toISOString();\n      dateHeaderMissing = false;\n    } catch (e) {}\n  }\n  \n  const fromEmailNormalized = normalizeEmail(fromEmail);\n  const contentHash = generateContentHash(fromEmail, subject, bodyPreview);\n  const hasAttachments = (email.attachments && email.attachments.length > 0) || false;\n  const attachmentCount = email.attachments?.length || 0;\n  const spamResult = detectSpam(fromEmail, subject, bodyPreview);\n  \n  results.push({\n    json: {\n      imap_uid: imapUid,\n      imap_mailbox: 'INBOX',\n      rfc_message_id: rfcMessageId,\n      content_hash: contentHash,\n      direction: 'inbound',\n      channel: 'email',\n      from_email: fromEmail,\n      from_email_normalized: fromEmailNormalized,\n      from_name: fromName,\n      to_email: toEmail,\n      subject: subject,\n      body_preview: bodyPreview,\n      body_full: bodyFull,\n      has_attachments: hasAttachments,\n      attachment_count: attachmentCount,\n      raw_headers: {},\n      is_spam: spamResult.is_spam,\n      spam_reason: spamResult.spam_reason,\n      received_at: receivedAt,\n      date_header_missing: dateHeaderMissing,\n      processed: false,\n      imap_seen_marked: false\n    }\n  });\n}\n\nreturn results;"
+            },
+            "id": "b608a2eb-337a-4c83-95ce-c94c042faa81",
+            "name": "Process Email Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -656,
+                112
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 1
+                    },
+                    "conditions": [
+                        {
+                            "id": "is-empty-array",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "string",
+                                "operation": "empty",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "eb073c55-597e-49d6-94f7-d4c91139a1bf",
+            "name": "Is New?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                -224,
+                112
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare insert payload\nconst emailData = $('Process Email Data').item.json;\nconst customerResult = $('Match Customer').item.json;\n\nconst customerId = customerResult?.id || null;\n\nreturn [{\n  json: {\n    imap_uid: emailData.imap_uid,\n    imap_mailbox: emailData.imap_mailbox,\n    rfc_message_id: emailData.rfc_message_id,\n    content_hash: emailData.content_hash,\n    customer_id: customerId,\n    lead_id: null,\n    direction: emailData.direction,\n    channel: emailData.channel,\n    from_email: emailData.from_email,\n    from_email_normalized: emailData.from_email_normalized,\n    from_name: emailData.from_name,\n    to_email: emailData.to_email,\n    subject: emailData.subject,\n    body_preview: emailData.body_preview,\n    body_full: emailData.body_full,\n    has_attachments: emailData.has_attachments,\n    attachment_count: emailData.attachment_count,\n    raw_headers: emailData.raw_headers,\n    is_spam: emailData.is_spam,\n    spam_reason: emailData.spam_reason,\n    received_at: emailData.received_at,\n    date_header_missing: emailData.date_header_missing,\n    processed: true,\n    imap_seen_marked: false\n  }\n}];"
+            },
+            "id": "df0c9067-7f20-4659-bf77-fc545cafe9b3",
+            "name": "Prepare Insert",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                224,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "result",
+                            "name": "result",
+                            "value": "={{ 'Email saved: ' + $('Process Email Data').item.json.from_email + ' - ' + $('Process Email Data').item.json.subject }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "10b86f3c-d718-4bae-81db-8322c19f7b8d",
+            "name": "Success",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                672,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "result",
+                            "name": "result",
+                            "value": "={{ 'Duplicate skipped: ' + $('Process Email Data').item.json.from_email }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "4b3a9285-68ef-404c-ba20-fd672b595f92",
+            "name": "Skip Duplicate",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                0,
+                208
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "messages",
+                "limit": 1,
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "content_hash",
+                            "condition": "eq",
+                            "keyValue": "={{ $json.content_hash }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                -448,
+                112
+            ],
+            "id": "47dadbfe-6125-4fca-a5c4-289c5b70b58b",
+            "name": "Check Duplicate",
+            "alwaysOutputData": true,
+            "credentials": {
+                "supabaseApi": {
+                    "id": "pawqI25Bvupo0uud",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "tableId": "customers",
+                "limit": 1,
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "email",
+                            "condition": "eq",
+                            "keyValue": "={{ $('Process Email Data').item.json.from_email_normalized }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                -16,
+                16
+            ],
+            "id": "42475960-6a2d-49d4-bc22-61bd323370e7",
+            "name": "Match Customer",
+            "alwaysOutputData": true,
+            "credentials": {
+                "supabaseApi": {
+                    "id": "pawqI25Bvupo0uud",
+                    "name": "Supabase account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "tableId": "messages",
+                "dataToSend": "autoMapInputData"
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                432,
+                0
+            ],
+            "id": "84c60cd7-c9f9-4550-9bdd-35919d1694be",
+            "name": "Insert Message",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "pawqI25Bvupo0uud",
+                    "name": "Supabase account"
+                }
+            }
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "Read Unseen Emails": {
+            "main": [
+                [
+                    {
+                        "node": "Process Email Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Email Data": {
+            "main": [
+                [
+                    {
+                        "node": "Check Duplicate",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is New?": {
+            "main": [
+                [
+                    {
+                        "node": "Match Customer",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Skip Duplicate",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Insert": {
+            "main": [
+                [
+                    {
+                        "node": "Insert Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Duplicate": {
+            "main": [
+                [
+                    {
+                        "node": "Is New?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Match Customer": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Insert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Insert Message": {
+            "main": [
+                [
+                    {
+                        "node": "Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": true,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "id": "bzWAZy9HzFu2k-IrE7Thp"
+}
