@@ -50,7 +50,7 @@ export const Today = () => {
             if (jobsError) throw jobsError;
             setJobs(jobsData || []);
 
-            // 3. Fetch 5 latest messages
+            // 3. Fetch 5 latest messages (without join to avoid 300 status)
             const { data: messagesData, error: messagesError } = await supabase
                 .from('messages')
                 .select(`
@@ -61,17 +61,37 @@ export const Today = () => {
                     direction,
                     received_at,
                     body_preview,
-                    customer_id,
-                    customers!customer_id (
-                        id,
-                        name
-                    )
+                    customer_id
                 `)
                 .order('received_at', { ascending: false })
                 .limit(5);
 
             if (messagesError) throw messagesError;
-            setMessages(messagesData || []);
+
+            // Fetch customer names for messages
+            const customerIds = [...new Set((messagesData || [])
+                .map(m => m.customer_id)
+                .filter(Boolean))];
+
+            let customersMap = {};
+            if (customerIds.length > 0) {
+                const { data: customersData } = await supabase
+                    .from('customers')
+                    .select('id, name')
+                    .in('id', customerIds);
+
+                (customersData || []).forEach(c => {
+                    customersMap[c.id] = c;
+                });
+            }
+
+            // Attach customer data to messages
+            const messagesWithCustomers = (messagesData || []).map(m => ({
+                ...m,
+                customers: customersMap[m.customer_id] || null
+            }));
+
+            setMessages(messagesWithCustomers);
 
             // 4. Stats
             const { count: leadsCount, error: leadsCountError } = await supabase
