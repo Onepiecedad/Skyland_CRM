@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { leadsAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
+import { SwipeableCard } from '../components/SwipeableCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
 import { sv } from 'date-fns/locale';
+import { toast } from 'sonner';
 import { AlertCircle, RefreshCw, Mail, ArrowRight, Users, FileText, Calendar, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
 export const Today = () => {
+    const navigate = useNavigate();
     const [leads, setLeads] = useState([]);
     const [jobs, setJobs] = useState([]);
     const [messages, setMessages] = useState([]);
@@ -240,18 +244,48 @@ export const Today = () => {
                                         </div>
                                     );
 
-                                    return lead.customer_id ? (
-                                        <Link
+                                    // Handle delete
+                                    const handleDeleteLead = async () => {
+                                        try {
+                                            await leadsAPI.delete(lead.id);
+                                            toast.success('Förfrågan borttagen');
+                                            // Remove from local state
+                                            setLeads(prev => prev.filter(l => l.id !== lead.id));
+                                        } catch (error) {
+                                            console.error('Error deleting lead:', error);
+                                            toast.error('Kunde inte ta bort förfrågan');
+                                        }
+                                    };
+
+                                    // Handle navigate
+                                    const handleNavigate = () => {
+                                        if (lead.customer_id) {
+                                            navigate(`/kund/${lead.customer_id}`);
+                                        }
+                                    };
+
+                                    return (
+                                        <SwipeableCard
                                             key={lead.id}
-                                            to={`/kund/${lead.customer_id}`}
-                                            className="group flex items-start border-b last:border-0 pb-2 sm:pb-3 last:pb-0 pt-1 sm:pt-2 hover:bg-muted/50 transition-colors -mx-3 sm:-mx-4 px-3 sm:px-4 rounded-lg"
+                                            onSwipeLeft={handleDeleteLead}
+                                            onSwipeRight={lead.customer_id ? handleNavigate : undefined}
+                                            leftLabel="Ta bort"
+                                            rightLabel="Öppna"
+                                            className="border-b last:border-0"
                                         >
-                                            <InnerContent />
-                                        </Link>
-                                    ) : (
-                                        <div key={lead.id} className="flex items-start border-b last:border-0 pb-2 sm:pb-3 last:pb-0 pt-1 sm:pt-2 -mx-3 sm:-mx-4 px-3 sm:px-4">
-                                            <InnerContent />
-                                        </div>
+                                            {lead.customer_id ? (
+                                                <Link
+                                                    to={`/kund/${lead.customer_id}`}
+                                                    className="group flex items-start pb-2 sm:pb-3 pt-1 sm:pt-2 hover:bg-muted/50 transition-colors px-3 sm:px-4"
+                                                >
+                                                    <InnerContent />
+                                                </Link>
+                                            ) : (
+                                                <div className="flex items-start pb-2 sm:pb-3 pt-1 sm:pt-2 px-3 sm:px-4">
+                                                    <InnerContent />
+                                                </div>
+                                            )}
+                                        </SwipeableCard>
                                     );
                                 })
                             )}
