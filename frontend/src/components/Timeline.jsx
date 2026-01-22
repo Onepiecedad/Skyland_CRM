@@ -76,145 +76,123 @@ const cleanEmailBody = (text) => {
 
     let cleaned = text;
 
-    // First pass: Remove entire quoted sections that start with common reply headers
-    // These patterns match the start of a quoted reply chain and everything after
-    const replyHeaderPatterns = [
-        /Den (\d{1,2}|tors|fre|mån|tis|ons|lör|sön)[^\n]*\d{4}[^\n]*skrev/gi,  // "Den 6 januari 2026... skrev" or "Den tors 8 jan..."
-        /\d{1,2}\s+(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\s+\d{4}/gi, // Full Swedish month
-        /\d{1,2}\s+(jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)\.?\s+\d{4}/gi, // Abbreviated Swedish month
-        /\d{1,2}\s+\w+\.?\s+\d{4}\s+\d{1,2}:\d{2}.*?skrev/gis,     // "6 jan. 2026 kl. 18:59 skrev..."
-        /On\s+\w+\s+\d{1,2},?\s+\d{4}.*?wrote:/gis,                 // "On Mon Jan 6, 2024... wrote:"
-        /From:.*?<.*?>.*?Subject:/gis,                              // Email headers
-        /Från:.*?Ämne:/gis,                                         // Swedish email headers
-        /centraleuropeisk\s+(normal)?tid/gi,                        // "centraleuropeisk normaltid" timezone indicator
+    // STEP 1: Find and cut at common reply header patterns
+    // These indicate the start of a quoted email chain
+    const cutoffPatterns = [
+        // "Den mån 12 jan. 2026 18:13Lars Johansson skrev:"
+        /Den\s+(mån|tis|ons|tors|fre|lör|sön)?\s*\d{1,2}/i,
+        // "12 januari 2026, 14:23 centraleuropeisk"
+        /\d{1,2}\s+(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\s+\d{4},?\s+\d{1,2}:\d{2}/i,
+        // Just "centraleuropeisk" timezone indicator
+        /centraleuropeisk/i,
+        // "On Mon, Jan 6, 2024"
+        /On\s+\w{3,},?\s+\w{3,}\s+\d{1,2}/i,
+        // Lines starting with "> " followed by these patterns
+        /\n>\s*Den\s+/i,
+        /\n>\s*\d{1,2}\s+(jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)/i,
+        // "skrev" attributions
+        /,?\s*skrev\s+[A-Za-zÀ-ÿ\s]+[<@]/i,
     ];
 
-    // Find the earliest match of any reply header and truncate there
+    // Find the earliest cutoff point
     let earliestCutoff = cleaned.length;
-    for (const pattern of replyHeaderPatterns) {
+    for (const pattern of cutoffPatterns) {
         const match = cleaned.match(pattern);
-        if (match && match.index !== undefined && match.index < earliestCutoff) {
+        if (match && match.index !== undefined && match.index < earliestCutoff && match.index > 20) {
             earliestCutoff = match.index;
         }
     }
 
+    // Cut at the earliest pattern match
     if (earliestCutoff < cleaned.length) {
         cleaned = cleaned.substring(0, earliestCutoff);
     }
 
-    // STEP 2: Remove inline "> > > >" patterns that appear within text
-    // These often appear when email clients don't properly format quotes
-    cleaned = cleaned.replace(/(\s*>\s*){2,}/g, ' '); // Multiple consecutive > markers
-    cleaned = cleaned.replace(/\s*>\s*>/g, ' '); // " > >" patterns
-    cleaned = cleaned.replace(/>\s+/g, ' '); // Single > followed by space
-
-    // Also remove email addresses with angle brackets that indicate quote chains
-    cleaned = cleaned.replace(/<[^>]+@[^>]+>:?\s*/g, '');
-
-    // STEP 3: Cut at "skrev" patterns followed by names/emails (quote attributions)
-    const skrevMatch = cleaned.match(/,?\s*skrev\s+[A-Za-zÀ-ÿ\s]+[<@]/i);
-    if (skrevMatch && skrevMatch.index && skrevMatch.index > 50) {
-        cleaned = cleaned.substring(0, skrevMatch.index);
-    }
-
-    // Cut at "centraleuropeisk" timezone patterns
-    const timezoneMatch = cleaned.match(/centraleuropeisk/i);
-    if (timezoneMatch && timezoneMatch.index && timezoneMatch.index > 50) {
-        cleaned = cleaned.substring(0, timezoneMatch.index);
-    }
-
-    // Remove date patterns that start quote attributions
-    cleaned = cleaned.replace(/\d{1,2}\s+(jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)\.?\s+\d{4},?\s+\d{1,2}:\d{2}[^.!?]*/gi, '');
-
-    // Clean "Skickat från min iPhone" and similar inline
-    cleaned = cleaned.replace(/Skickat från min iPhone[^.!?]*/gi, '');
-    cleaned = cleaned.replace(/Sent from my [^.!?]*/gi, '');
-
-    // Split into lines for line-by-line processing
+    // STEP 2: Remove lines starting with ">" (quoted text)
     const lines = cleaned.split('\n');
     const cleanedLines = [];
-    let consecutiveQuotedLines = 0;
+    let foundContent = false;
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmedLine = line.trim();
+    for (const line of lines) {
+        const trimmed = line.trim();
 
         // Skip empty lines at the start
-        if (cleanedLines.length === 0 && trimmedLine === '') continue;
+        if (!foundContent && trimmed === '') continue;
 
-        // Count leading '>' characters - handles "> > > >" style quotes
-        const quoteMatch = trimmedLine.match(/^[>\s]+/);
-        const quoteDepth = quoteMatch ? (quoteMatch[0].match(/>/g) || []).length : 0;
+        // Skip lines starting with ">" (quoted)
+        if (trimmed.startsWith('>')) continue;
 
-        // Skip any line that has quote markers
-        if (quoteDepth > 0) {
-            consecutiveQuotedLines++;
-            continue;
-        }
+        // Skip lines that are just ">" markers with spaces
+        if (/^[\s>]+$/.test(line)) continue;
 
-        // Detect email headers that indicate start of quoted content
-        if (/^Den\s+\d/.test(trimmedLine) && trimmedLine.includes('skrev')) {
-            break; // Stop processing, rest is quoted content
-        }
-        if (/^\d{1,2}\s+\w+\.?\s+\d{4}/.test(trimmedLine) && (trimmedLine.includes('skrev') || trimmedLine.includes('kl.'))) {
-            break; // Stop processing
-        }
-        if (/^On\s+\w/.test(trimmedLine) && /wrote:?$/i.test(trimmedLine)) {
-            break; // Stop processing
-        }
+        // Check for inline reply headers and stop
+        if (/^Den\s+(mån|tis|ons|tors|fre|lör|sön)?\s*\d/i.test(trimmed)) break;
+        if (/^\d{1,2}\s+(jan|feb|mar)/i.test(trimmed) && /skrev|kl\./i.test(trimmed)) break;
+        if (/^On\s+\w+,?\s+\w+\s+\d/i.test(trimmed)) break;
 
-        // "Skickat från min iPhone" - skip and stop
-        if (/^Skickat från min iPhone/i.test(trimmedLine) ||
-            /^Sent from my/i.test(trimmedLine) ||
-            /^Skickat från /i.test(trimmedLine)) {
-            continue;
-        }
+        // Skip "Skickat från min iPhone" etc
+        if (/^Skickat från/i.test(trimmed)) continue;
+        if (/^Sent from/i.test(trimmed)) continue;
 
-        // Skip lines that are just email formatting/separators
-        if (/^[>\s_\-=]{10,}$/.test(trimmedLine)) continue;
+        // Skip lines that are email headers
+        if (/^<[^>]+>:?\s*$/.test(trimmed)) continue;
 
-        // Skip email addresses in angle brackets patterns like "<email@domain.com>:"
-        if (/^<[^>]+>:?\s*$/.test(trimmedLine)) continue;
-
-        // Skip lines that look like quoted email addresses with ">" prefix pattern
-        if (/^[>\s]*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[>\s:]*$/.test(trimmedLine)) continue;
-
-        // After several consecutive quoted lines, be more aggressive about what follows
-        if (consecutiveQuotedLines > 2) {
-            // If this non-quoted line follows many quoted lines and looks like continuation
-            if (trimmedLine.includes('@') && trimmedLine.length < 80) {
-                continue; // Skip email addresses after quotes
-            }
-            if (/^[A-Za-zÀ-ÿ]+ [A-Za-zÀ-ÿ]+\s*$/.test(trimmedLine) && trimmedLine.length < 40) {
-                continue; // Skip name-only lines after quotes
-            }
-        }
-
-        consecutiveQuotedLines = 0;
+        foundContent = true;
         cleanedLines.push(line);
     }
 
     cleaned = cleanedLines.join('\n');
 
-    // Remove multiple consecutive blank lines
+    // STEP 3: Clean up any remaining ">" artifacts
+    cleaned = cleaned.replace(/^>\s*/gm, '');
+    cleaned = cleaned.replace(/\s*>\s*>/g, ' ');
+
+    // Remove multiple consecutive empty lines
     cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
 
-    // Remove trailing whitespace from each line
-    cleaned = cleaned.split('\n').map(l => l.trimEnd()).join('\n');
-
-    // Trim overall
+    // Trim
     cleaned = cleaned.trim();
 
-    // If we ended up with very little content, return something meaningful
-    if (cleaned.length < 10) {
-        // Try to extract at least the first meaningful sentence from original
-        const original = text.split('\n').find(l => l.trim().length > 20 && !l.trim().startsWith('>'));
-        if (original) {
-            return original.trim().substring(0, 300);
-        }
+    // STEP 4: If result is too short, get first paragraph
+    if (cleaned.length < 20) {
+        const firstLines = text.split('\n')
+            .filter(l => !l.trim().startsWith('>') && l.trim().length > 0)
+            .slice(0, 5)
+            .join('\n');
+        return firstLines.substring(0, 300).trim() || text.substring(0, 200);
     }
 
     return cleaned;
+};
+
+// Extract quoted content separately for optional display
+const extractQuotedContent = (text) => {
+    if (!text) return null;
+
+    const lines = text.split('\n');
+    const quotedLines = [];
+    let inQuotedBlock = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Check if this is a quote header
+        if (/^Den\s+(mån|tis|ons|tors|fre|lör|sön)?\s*\d/i.test(trimmed)) {
+            inQuotedBlock = true;
+        }
+        if (/^On\s+\w+,?\s+\w+\s+\d/i.test(trimmed)) {
+            inQuotedBlock = true;
+        }
+
+        // Lines starting with ">" are quoted
+        if (trimmed.startsWith('>') || inQuotedBlock) {
+            quotedLines.push(line.replace(/^>\s*/, ''));
+            inQuotedBlock = true;
+        }
+    }
+
+    const quoted = quotedLines.join('\n').trim();
+    return quoted.length > 20 ? quoted : null;
 };
 
 /**
@@ -288,8 +266,12 @@ export const Timeline = ({ customerId, customer }) => {
                 const rawPreviewContent = email.body_preview || email.content || email.body || email.body_full || '';
 
                 // Decode in correct order: quoted-printable -> HTML entities -> Swedish encoding -> clean formatting
-                const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawFullContent))));
+                const decodedFull = fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawFullContent)));
+                const fullContent = cleanEmailBody(decodedFull);
                 const previewContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawPreviewContent))));
+
+                // Extract quoted content for collapsible display
+                const quotedContent = extractQuotedContent(decodedFull);
 
                 const fromLabel = fixSwedishEncoding(decodeQuotedPrintable(email.from_name || email.from_address || email.from_email || 'Okänd avsändare'));
                 const subject = fixSwedishEncoding(decodeQuotedPrintable(email.subject || 'Inget ämne'));
@@ -303,7 +285,8 @@ export const Timeline = ({ customerId, customer }) => {
                         ? previewContent.substring(0, 300)
                         : previewContent,
                     fullContent: fullContent,
-                    hasMore: fullContent.length > 300,
+                    quotedContent: quotedContent,
+                    hasMore: fullContent.length > 300 || quotedContent,
                     ts: email.received_at || email.created_at || null,
                     direction: email.direction,
                 };
@@ -515,7 +498,7 @@ export const Timeline = ({ customerId, customer }) => {
             </CardHeader>
             {!isCollapsed && (
                 <CardContent>
-                    <div className="space-y-4 sm:space-y-6 border-l-2 border-muted pl-4 sm:pl-6 relative">
+                    <div className="space-y-4">
                         {items.map((item) => (
                             <TimelineItem
                                 key={item.id}
@@ -548,16 +531,16 @@ export const Timeline = ({ customerId, customer }) => {
     );
 };
 
-// Separate component for each timeline item to handle expand state
+// Separate component for each timeline item - Chat bubble style
 const TimelineItem = ({ item, onReply, onDelete }) => {
     const [expanded, setExpanded] = useState(false);
-    const [showActions, setShowActions] = useState(false);
+    const [showQuoted, setShowQuoted] = useState(false);
 
     const isEmail = item.type === 'email';
+    const isOutbound = item.direction === 'outbound';
     const Icon = isEmail ? Mail : FileText;
-    const sourceLabel = isEmail ? 'Mejl' : 'Formulär';
 
-    // Format timestamp with edge case handling
+    // Format timestamp
     let formattedDate = 'Okänt datum';
     let shortDate = '';
     if (item.ts) {
@@ -570,79 +553,104 @@ const TimelineItem = ({ item, onReply, onDelete }) => {
     }
 
     const displayContent = expanded ? item.fullContent : item.preview;
-    const canExpand = item.hasMore && item.fullContent;
+    const canExpand = item.fullContent && item.fullContent.length > 300;
+    const hasQuoted = item.quotedContent && item.quotedContent.length > 20;
+
+    // Chat bubble styles based on direction
+    const bubbleClasses = isOutbound
+        ? 'ml-auto bg-primary/10 border-primary/30'
+        : 'mr-auto bg-muted/50 border-border';
 
     return (
-        <div className="relative">
-            <span className="absolute -left-[21px] sm:-left-[31px] top-1 bg-background border-2 border-primary rounded-full w-3 h-3 sm:w-4 sm:h-4" />
-            <div className="flex flex-col gap-1">
-                <span className="text-xs sm:text-sm text-muted-foreground">
-                    <span className="hidden sm:inline">{formattedDate}</span>
-                    <span className="sm:hidden">{shortDate}</span>
-                </span>
-                <div className="font-semibold text-sm sm:text-base flex items-center gap-2 flex-wrap">
-                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                    <span>{sourceLabel}</span>
-                    {isEmail && item.direction === 'outbound' && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">skickat</span>
+        <div className={`flex flex-col ${isOutbound ? 'items-end' : 'items-start'} w-full`}>
+            {/* Sender info and timestamp */}
+            <div className={`flex items-center gap-2 mb-1.5 text-xs ${isOutbound ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex items-center gap-1.5 font-medium ${isOutbound ? 'text-primary' : 'text-foreground'}`}>
+                    {isOutbound ? (
+                        <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">Du</span>
+                    ) : (
+                        <>
+                            <Icon className="h-3.5 w-3.5" />
+                            <span>{item.from_label}</span>
+                        </>
                     )}
                 </div>
+                <span className="text-muted-foreground">
+                    {shortDate}
+                </span>
+            </div>
+
+            {/* Chat bubble */}
+            <div className={`max-w-[90%] sm:max-w-[80%] rounded-2xl border p-3 sm:p-4 ${bubbleClasses} ${isOutbound ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}>
+                {/* Subject line for emails */}
                 {item.title && item.type === 'email' && (
-                    <div className="text-xs sm:text-sm font-medium text-foreground truncate">
+                    <div className="font-semibold text-sm mb-2 pb-2 border-b border-foreground/10">
                         {item.title}
                     </div>
                 )}
-                <div className="text-xs sm:text-sm text-foreground">
-                    {item.from_label}
-                </div>
+
+                {/* Message content */}
                 {displayContent && (
-                    <p className={`text-xs sm:text-sm text-muted-foreground mt-1 whitespace-pre-wrap break-words ${!expanded ? 'line-clamp-4' : ''}`}>
+                    <p className={`text-sm whitespace-pre-wrap break-words leading-relaxed ${!expanded ? 'line-clamp-6' : ''}`}>
                         {displayContent}
                     </p>
                 )}
-                {/* Action buttons row */}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {canExpand && (
+
+                {/* Expand button if content is long */}
+                {canExpand && (
+                    <button
+                        onClick={() => setExpanded(!expanded)}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                    >
+                        {expanded ? (
+                            <><ChevronUp className="h-3 w-3" /> Visa mindre</>
+                        ) : (
+                            <><ChevronDown className="h-3 w-3" /> Visa mer</>
+                        )}
+                    </button>
+                )}
+
+                {/* Collapsible quoted content section */}
+                {hasQuoted && expanded && (
+                    <div className="mt-3 pt-2 border-t border-foreground/10">
                         <button
-                            onClick={() => setExpanded(!expanded)}
-                            className="flex items-center gap-1 text-xs text-primary hover:underline py-1"
+                            onClick={() => setShowQuoted(!showQuoted)}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                         >
-                            {expanded ? (
-                                <>
-                                    <ChevronUp className="h-3 w-3" />
-                                    Visa mindre
-                                </>
+                            {showQuoted ? (
+                                <><ChevronUp className="h-3 w-3" /> Dölj tidigare</>
                             ) : (
-                                <>
-                                    <ChevronDown className="h-3 w-3" />
-                                    Visa mer
-                                </>
+                                <><ChevronDown className="h-3 w-3" /> Visa tidigare meddelanden</>
                             )}
                         </button>
-                    )}
+                        {showQuoted && (
+                            <div className="mt-2 pl-3 border-l-2 border-muted-foreground/30 text-xs text-muted-foreground whitespace-pre-wrap break-words max-h-[150px] overflow-y-auto">
+                                {item.quotedContent}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
-                    {/* Reply button - only for emails */}
-                    {item.type === 'email' && (
-                        <button
-                            onClick={() => onReply?.(item)}
-                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors py-1"
-                        >
-                            <Reply className="h-3 w-3" />
-                            Svara
-                        </button>
-                    )}
-
-                    {/* Delete button - for emails only (form submissions should not be deleted from here) */}
-                    {item.type === 'email' && (
-                        <button
-                            onClick={() => onDelete?.(item)}
-                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors py-1"
-                        >
-                            <Trash2 className="h-3 w-3" />
-                            Radera
-                        </button>
-                    )}
-                </div>
+            {/* Action buttons below bubble */}
+            <div className={`flex items-center gap-3 mt-1 ${isOutbound ? 'flex-row-reverse' : 'flex-row'}`}>
+                {item.type === 'email' && !isOutbound && (
+                    <button
+                        onClick={() => onReply?.(item)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        <Reply className="h-3 w-3" />
+                        Svara
+                    </button>
+                )}
+                {item.type === 'email' && (
+                    <button
+                        onClick={() => onDelete?.(item)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                        <Trash2 className="h-3 w-3" />
+                    </button>
+                )}
             </div>
         </div>
     );

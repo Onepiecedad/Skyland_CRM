@@ -81,7 +81,8 @@ export const Today = () => {
                     direction,
                     received_at,
                     body_preview,
-                    customer_id
+                    customer_id,
+                    seen
                 `)
                 .order('received_at', { ascending: false })
                 .limit(5);
@@ -463,12 +464,17 @@ export const Today = () => {
                                     <Link
                                         key={message.id}
                                         to={`/kund/${message.customer_id}`}
-                                        className="group flex items-start gap-2 sm:gap-3 border-b last:border-0 pb-2 sm:pb-3 last:pb-0 hover:bg-accent -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 transition-colors cursor-pointer rounded-md"
+                                        className={`group flex items-start gap-2 sm:gap-3 border-b last:border-0 pb-2 sm:pb-3 last:pb-0 hover:bg-accent -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 transition-colors cursor-pointer rounded-md ${message.direction === 'inbound' && !message.seen ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}
                                     >
-                                        <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0 group-hover:text-primary" />
+                                        <div className="relative shrink-0">
+                                            <Mail className="h-4 w-4 text-muted-foreground mt-0.5 group-hover:text-primary" />
+                                            {message.direction === 'inbound' && !message.seen && (
+                                                <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
+                                            )}
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-medium text-sm sm:text-base truncate group-hover:text-primary transition-colors">
+                                                <span className={`text-sm sm:text-base truncate group-hover:text-primary transition-colors ${message.direction === 'inbound' && !message.seen ? 'font-semibold' : 'font-medium'}`}>
                                                     {message.subject || 'Inget ämne'}
                                                 </span>
                                                 {message.direction === 'outbound' && (

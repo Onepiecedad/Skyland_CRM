@@ -7,6 +7,7 @@ import { messagesAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
+import { ReplyTemplates } from '../components/ReplyTemplates';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +27,8 @@ import {
     ArrowRight,
     Search,
     Reply,
-    Trash2
+    Trash2,
+    CheckCheck
 } from 'lucide-react';
 
 // Utility to decode HTML entities
@@ -158,33 +160,94 @@ const stripHtmlAndCss = (html) => {
     return text;
 };
 
-// Utility to clean email body text
+// Utility to clean email body text - removes quoted replies
 const cleanEmailBody = (text) => {
     if (!text) return '';
 
     // First strip any HTML/CSS
     let cleaned = stripHtmlAndCss(text);
 
-    // Remove email headers (date/time stamps with timezone info)
-    cleaned = cleaned.replace(/^\d{1,2}\s+\w+\s+\d{4},\s+\d{2}:\d{2}\s+\w+\s+\w+,\s+skrev\s+[^:]+:/gm, '');
+    // STEP 1: Find and cut at common reply header patterns
+    const cutoffPatterns = [
+        // "Den mån 12 jan. 2026 18:13Lars Johansson skrev:"
+        /Den\s+(mån|tis|ons|tors|fre|lör|sön)?\s*\d{1,2}/i,
+        // "12 januari 2026, 14:23 centraleuropeisk"
+        /\d{1,2}\s+(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\s+\d{4},?\s+\d{1,2}:\d{2}/i,
+        // Just "centraleuropeisk" timezone indicator
+        /centraleuropeisk/i,
+        // "On Mon, Jan 6, 2024"
+        /On\s+\w{3,},?\s+\w{3,}\s+\d{1,2}/i,
+        // "skrev" attributions
+        /,?\s*skrev\s+[A-Za-zÀ-ÿ\s]+[<@]/i,
+    ];
 
-    // Remove "Den [date] skrev [name] <email>:" patterns
-    cleaned = cleaned.replace(/^Den\s+\d{4}-\d{2}-\d{2}\s+\w+\s+\d{2}:\d{2}\s+skrev\s+[^:]+:/gm, '');
+    // Find the earliest cutoff point
+    let earliestCutoff = cleaned.length;
+    for (const pattern of cutoffPatterns) {
+        const match = cleaned.match(pattern);
+        if (match && match.index !== undefined && match.index < earliestCutoff && match.index > 20) {
+            earliestCutoff = match.index;
+        }
+    }
 
-    // Remove "On [date], [name] wrote:" patterns
-    cleaned = cleaned.replace(/^On\s+\w+,?\s+\w+\s+\d{1,2},?\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[AP]M,?\s+[^:]+wrote:/gm, '');
+    // Cut at the earliest pattern match
+    if (earliestCutoff < cleaned.length) {
+        cleaned = cleaned.substring(0, earliestCutoff);
+    }
 
-    // Simplify quoted reply markers - collapse multiple levels
-    cleaned = cleaned.replace(/^(>\s*)+/gm, '> ');
+    // STEP 2: Remove lines starting with ">" (quoted text)
+    const lines = cleaned.split('\n');
+    const cleanedLines = [];
+    let foundContent = false;
 
-    // Remove multiple consecutive blank lines
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Skip empty lines at the start
+        if (!foundContent && trimmed === '') continue;
+
+        // Skip lines starting with ">" (quoted)
+        if (trimmed.startsWith('>')) continue;
+
+        // Skip lines that are just ">" markers with spaces
+        if (/^[\s>]+$/.test(line)) continue;
+
+        // Check for inline reply headers and stop
+        if (/^Den\s+(mån|tis|ons|tors|fre|lör|sön)?\s*\d/i.test(trimmed)) break;
+        if (/^\d{1,2}\s+(jan|feb|mar)/i.test(trimmed) && /skrev|kl\./i.test(trimmed)) break;
+        if (/^On\s+\w+,?\s+\w+\s+\d/i.test(trimmed)) break;
+
+        // Skip "Skickat från min iPhone" etc
+        if (/^Skickat från/i.test(trimmed)) continue;
+        if (/^Sent from/i.test(trimmed)) continue;
+
+        // Skip lines that are email headers
+        if (/^<[^>]+>:?\s*$/.test(trimmed)) continue;
+
+        foundContent = true;
+        cleanedLines.push(line);
+    }
+
+    cleaned = cleanedLines.join('\n');
+
+    // STEP 3: Clean up any remaining ">" artifacts
+    cleaned = cleaned.replace(/^>\s*/gm, '');
+    cleaned = cleaned.replace(/\s*>\s*>/g, ' ');
+
+    // Remove multiple consecutive empty lines
     cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
 
-    // Clean up multiple spaces
-    cleaned = cleaned.replace(/  +/g, ' ');
-
-    // Trim whitespace
+    // Trim
     cleaned = cleaned.trim();
+
+    // STEP 4: If result is too short, get first non-quoted lines
+    if (cleaned.length < 20) {
+        const firstLines = text.split('\n')
+            .filter(l => !l.trim().startsWith('>') && l.trim().length > 0)
+            .slice(0, 5)
+            .join('\n');
+        return firstLines.substring(0, 300).trim() || text.substring(0, 200);
+    }
 
     return cleaned;
 };
@@ -208,6 +271,30 @@ export const Messages = () => {
     useEffect(() => {
         fetchMessages();
     }, [sortField, sortDirection]);
+
+    // Calculate unread count
+    const unreadCount = useMemo(() => {
+        return messages.filter(m => m.direction === 'inbound' && !m.seen).length;
+    }, [messages]);
+
+    const handleMarkAllAsRead = async () => {
+        try {
+            await messagesAPI.markAllAsSeen();
+            // Update local state
+            setMessages(prev => prev.map(m => ({ ...m, seen: true })));
+            toast({
+                title: 'Klart!',
+                description: 'Alla meddelanden markerade som lästa',
+            });
+        } catch (err) {
+            console.error('Error marking all as read:', err);
+            toast({
+                title: 'Fel',
+                description: 'Kunde inte markera meddelanden som lästa',
+                variant: 'destructive',
+            });
+        }
+    };
 
     const fetchMessages = async () => {
         setLoading(true);
@@ -421,10 +508,24 @@ export const Messages = () => {
             <main className="flex-1 container mx-auto px-4 py-4 sm:py-6">
                 <div className="flex flex-col gap-4 sm:gap-6">
                     {/* Header */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                         <h1 className="text-xl sm:text-2xl font-bold">Meddelanden</h1>
-                        <div className="text-xs sm:text-sm text-muted-foreground">
-                            {filteredMessages.length} av {messages.length} st
+                        <div className="flex items-center gap-2">
+                            {unreadCount > 0 && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleMarkAllAsRead}
+                                    className="text-xs h-8"
+                                >
+                                    <CheckCheck className="h-3.5 w-3.5 mr-1.5" />
+                                    <span className="hidden sm:inline">Markera alla lästa</span>
+                                    <span className="sm:hidden">Lästa ({unreadCount})</span>
+                                </Button>
+                            )}
+                            <span className="text-xs sm:text-sm text-muted-foreground">
+                                {filteredMessages.length} av {messages.length} st
+                            </span>
                         </div>
                     </div>
 
@@ -559,129 +660,94 @@ export const Messages = () => {
                                     } catch (e) { }
                                 }
 
+                                const isOutbound = message.direction === 'outbound';
+                                const isUnread = message.direction === 'inbound' && !message.seen;
+
                                 return (
-                                    <Card
+                                    <div
                                         key={message.id}
-                                        className={`hover:shadow-sm transition-shadow ${message.direction === 'inbound' && !message.seen
-                                            ? 'border-l-4 border-l-primary bg-primary/5'
-                                            : ''
-                                            }`}
+                                        className={`flex flex-col ${isOutbound ? 'items-end' : 'items-start'} w-full`}
                                     >
-                                        <CardContent className="p-3 sm:p-4">
-                                            <div className="flex flex-col gap-3">
-                                                {/* Header row */}
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex items-start gap-2 min-w-0 flex-1">
-                                                        <div className="relative shrink-0 mt-0.5 hidden sm:block">
-                                                            <Mail className="h-4 w-4 text-muted-foreground" />
-                                                            {message.direction === 'inbound' && !message.seen && (
-                                                                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-primary rounded-full" />
-                                                            )}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className={`text-sm sm:text-base ${message.direction === 'inbound' && !message.seen
-                                                                    ? 'font-semibold'
-                                                                    : 'font-medium'
-                                                                    }`}>
-                                                                    {subject}
-                                                                </span>
-                                                                {message.direction === 'outbound' && (
-                                                                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded shrink-0">
-                                                                        Skickat
-                                                                    </span>
-                                                                )}
-                                                                {message.direction === 'inbound' && (
-                                                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded shrink-0">
-                                                                        Inkommande
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
-                                                        <span className="hidden sm:inline">{formattedDate}</span>
-                                                        <span className="sm:hidden">{shortDate}</span>
-                                                    </span>
-                                                </div>
-
-                                                {/* From/To info */}
-                                                <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm">
-                                                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                                                        <User className="h-3 w-3 shrink-0" />
-                                                        <span className="truncate">
-                                                            {fromName}
-                                                        </span>
-                                                    </div>
-                                                    {message.customers && (
-                                                        <>
-                                                            <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                                            <Link
-                                                                to={`/kund/${message.customers.id}`}
-                                                                className="text-primary hover:underline truncate"
-                                                            >
-                                                                {formatCustomerName(message.customers.name, message.customers.email)}
-                                                            </Link>
-                                                        </>
-                                                    )}
-                                                </div>
-
-                                                {/* Body preview */}
-                                                {displayContent && (
-                                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                                                        <p className="whitespace-pre-wrap break-words">
-                                                            {displayContent}
-                                                            {!isExpanded && hasMore && '...'}
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {/* Expand button */}
-                                                {hasMore && (
-                                                    <button
-                                                        onClick={() => toggleExpand(message.id, message)}
-                                                        className="flex items-center gap-1 text-xs text-primary hover:underline w-fit mt-1"
-                                                    >
-                                                        {isExpanded ? (
-                                                            <>
-                                                                <ChevronUp className="h-3 w-3" />
-                                                                Visa mindre
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <ChevronDown className="h-3 w-3" />
-                                                                Visa mer
-                                                            </>
+                                        {/* Sender info and timestamp */}
+                                        <div className={`flex items-center gap-2 mb-1.5 text-xs ${isOutbound ? 'flex-row-reverse' : 'flex-row'}`}>
+                                            <div className={`flex items-center gap-1.5 font-medium ${isOutbound ? 'text-primary' : 'text-foreground'}`}>
+                                                {isOutbound ? (
+                                                    <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">Du</span>
+                                                ) : (
+                                                    <>
+                                                        <User className="h-3.5 w-3.5" />
+                                                        <span>{fromName}</span>
+                                                        {isUnread && (
+                                                            <span className="h-2 w-2 bg-primary rounded-full" />
                                                         )}
-                                                    </button>
-                                                )}
-
-                                                {/* Action buttons */}
-                                                {message.direction === 'inbound' && (
-                                                    <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-3 border-t">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => handleReplyClick(message)}
-                                                            className="text-xs sm:text-sm h-9 sm:h-8 w-full sm:w-auto"
-                                                        >
-                                                            <Reply className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" />
-                                                            Svara
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => handleDelete(message.id)}
-                                                            className="text-xs sm:text-sm h-9 sm:h-8 w-full sm:w-auto text-destructive hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1.5 sm:mr-1" />
-                                                            Radera
-                                                        </Button>
-                                                    </div>
+                                                    </>
                                                 )}
                                             </div>
-                                        </CardContent>
-                                    </Card>
+                                            <span className="text-muted-foreground">
+                                                {shortDate}
+                                            </span>
+                                            {message.customers && (
+                                                <Link
+                                                    to={`/kund/${message.customers.id}`}
+                                                    className="text-primary hover:underline truncate max-w-[120px]"
+                                                >
+                                                    → {formatCustomerName(message.customers.name, message.customers.email)}
+                                                </Link>
+                                            )}
+                                        </div>
+
+                                        {/* Chat bubble */}
+                                        <div className={`max-w-[90%] sm:max-w-[80%] rounded-2xl border p-3 sm:p-4 ${isOutbound
+                                            ? 'ml-auto bg-primary/10 border-primary/30 rounded-tr-sm'
+                                            : `mr-auto ${isUnread ? 'bg-primary/5 border-primary/40' : 'bg-muted/50 border-border'} rounded-tl-sm`
+                                            }`}>
+                                            {/* Subject line */}
+                                            <div className={`font-semibold text-sm mb-2 pb-2 border-b border-foreground/10 ${isUnread ? 'text-foreground' : ''}`}>
+                                                {subject}
+                                            </div>
+
+                                            {/* Message content */}
+                                            {displayContent && (
+                                                <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                                    {displayContent}
+                                                    {!isExpanded && hasMore && '...'}
+                                                </p>
+                                            )}
+
+                                            {/* Expand button */}
+                                            {hasMore && (
+                                                <button
+                                                    onClick={() => toggleExpand(message.id, message)}
+                                                    className="flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                                                >
+                                                    {isExpanded ? (
+                                                        <><ChevronUp className="h-3 w-3" /> Visa mindre</>
+                                                    ) : (
+                                                        <><ChevronDown className="h-3 w-3" /> Visa mer</>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Action buttons below bubble */}
+                                        <div className={`flex items-center gap-3 mt-1.5 ${isOutbound ? 'flex-row-reverse' : 'flex-row'}`}>
+                                            {!isOutbound && (
+                                                <button
+                                                    onClick={() => handleReplyClick(message)}
+                                                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                                                >
+                                                    <Reply className="h-3 w-3" />
+                                                    Svara
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleDelete(message.id)}
+                                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -702,10 +768,17 @@ export const Messages = () => {
                     </DialogHeader>
                     <div className="space-y-4 py-3 sm:py-4">
                         <div className="space-y-2">
-                            <Label htmlFor="reply-message" className="text-sm">Meddelande</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="reply-message" className="text-sm">Meddelande</Label>
+                                <ReplyTemplates
+                                    onSelect={(template) => {
+                                        setReplyMessage(template.body);
+                                    }}
+                                />
+                            </div>
                             <Textarea
                                 id="reply-message"
-                                placeholder="Skriv ditt svar här..."
+                                placeholder="Skriv ditt svar här eller välj en mall..."
                                 value={replyMessage}
                                 onChange={(e) => setReplyMessage(e.target.value)}
                                 rows={8}

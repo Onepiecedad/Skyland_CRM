@@ -14,8 +14,9 @@ import { Dialog, DialogContent, DialogClose } from '../components/ui/dialog';
 import { LeadCard } from '../components/LeadCard';
 import { LeadForm } from '../components/forms/LeadForm';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
+import { ConvertLeadToJobButton } from '../components/ConvertLeadToJobButton';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
-import { Users, TrendingUp, Clock, CheckCircle, Plus, Edit, Trash2, Mail, Phone, User } from 'lucide-react';
+import { Users, TrendingUp, Clock, CheckCircle, Plus, Edit, Trash2, Mail, Phone, User, Wrench, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
@@ -164,7 +165,7 @@ export function LeadsPage() {
   const stats = {
     total: leads.length,
     open: leads.filter(lead => ['open', 'new', 'pending'].includes(lead.status)).length,
-    qualified: leads.filter(lead => lead.status === 'qualified').length,
+    archived: leads.filter(lead => lead.status === 'archived').length,
     won: leads.filter(lead => lead.status === 'won').length
   };
 
@@ -247,8 +248,8 @@ export function LeadsPage() {
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">Kvalificerade</p>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">{stats.qualified}</p>
+                <p className="text-xs text-muted-foreground">Arkiverade</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-500">{stats.archived}</p>
               </div>
               <TrendingUp className="h-5 w-5 text-muted-foreground hidden sm:block" />
             </div>
@@ -279,9 +280,9 @@ export function LeadsPage() {
             <SelectItem value="new">Ny</SelectItem>
             <SelectItem value="open">Öppen</SelectItem>
             <SelectItem value="pending">Väntar</SelectItem>
-            <SelectItem value="qualified">Kvalificerad</SelectItem>
             <SelectItem value="won">Vunnen</SelectItem>
             <SelectItem value="lost">Förlorad</SelectItem>
+            <SelectItem value="archived">Arkiverad</SelectItem>
           </SelectContent>
         </Select>
 
@@ -359,36 +360,28 @@ export function LeadsPage() {
                         </span>
 
                         <div className="flex items-center gap-1">
-                          {/* Quick status buttons */}
-                          {lead.status !== 'qualified' && lead.status !== 'won' && lead.status !== 'lost' && (
-                            <Button
-                              size="sm"
+                          {/* Convert to Job button - main action */}
+                          {lead.status !== 'won' && lead.status !== 'lost' && lead.status !== 'archived' && lead.customer_id && (
+                            <ConvertLeadToJobButton
+                              lead={lead}
+                              onSuccess={handleLeadSuccess}
                               variant="default"
-                              onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'qualified')}
-                              className="h-7 px-2 text-xs bg-blue-600 hover:bg-blue-700"
-                            >
-                              <CheckCircle className="h-3 w-3 sm:mr-1" />
-                              <span className="hidden sm:inline">Kvalificera</span>
-                            </Button>
-                          )}
-                          {lead.status === 'qualified' && (
-                            <Button
                               size="sm"
-                              variant="default"
-                              onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'won')}
                               className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="h-3 w-3 sm:mr-1" />
-                              <span className="hidden sm:inline">Vunnen</span>
-                            </Button>
+                            />
                           )}
 
-                          {customer && (
-                            <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
-                              <Link to={`/kund/${lead.customer_id}`}>
-                                <User className="h-3 w-3 sm:mr-1" />
-                                <span className="hidden sm:inline">Visa kund</span>
-                              </Link>
+                          {/* Archive button for leads that go nowhere */}
+                          {lead.status !== 'won' && lead.status !== 'lost' && lead.status !== 'archived' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => handleQuickStatusChange(e, lead.lead_id, 'archived')}
+                              className="h-7 px-2 text-xs"
+                              title="Arkivera"
+                            >
+                              <Archive className="h-3 w-3 sm:mr-1" />
+                              <span className="hidden sm:inline">Arkivera</span>
                             </Button>
                           )}
 
@@ -417,16 +410,16 @@ export function LeadsPage() {
           )}
         </div>
 
-        <DialogContent>
+        <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           {modalLoading ? (
             <LoadingSpinner />
           ) : modalError ? (
             <div className="text-destructive p-4">{modalError}</div>
           ) : (
-            <LeadCard lead={selectedLead} />
+            <LeadCard lead={selectedLead} onSuccess={() => { closeLeadModal(); fetchLeads(); }} />
           )}
           <DialogClose asChild>
-            <Button variant="outline" className="mt-4" onClick={closeLeadModal}>Stäng</Button>
+            <Button variant="outline" className="w-full mt-4" onClick={closeLeadModal}>Stäng</Button>
           </DialogClose>
         </DialogContent>
       </Dialog>

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { FloatingActionButton } from './components/FloatingActionButton';
 import { Login } from './pages/Login';
 import { Today } from './pages/Today';
 import { Messages } from './pages/Messages';
@@ -114,6 +115,7 @@ function App() {
                     />
                 </Routes>
                 <BottomNav />
+                <FloatingActionButton />
             </BrowserRouter>
             <Toaster />
         </div>

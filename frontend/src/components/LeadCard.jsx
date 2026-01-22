@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { leadsAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { StatusBadge } from './StatusBadge';
 import { Button } from "./ui/button";
-import { User, Mail, Phone, Calendar, Clock, Tag, Anchor, Wrench, Sparkles, AlertCircle } from 'lucide-react';
+import { ConvertLeadToJobButton } from './ConvertLeadToJobButton';
+import { User, Mail, Phone, Calendar, Clock, Tag, Anchor, Wrench, Sparkles, AlertCircle, Archive } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
+import { toast } from 'sonner';
 
-export function LeadCard({ lead }) {
+export function LeadCard({ lead, onSuccess }) {
   const [customer, setCustomer] = useState(null);
 
   useEffect(() => {
@@ -72,9 +75,16 @@ export function LeadCard({ lead }) {
     const labels = {
       contact: 'Kontakt',
       quote: 'Offert',
+      QUOTE: 'Offert',
       booking: 'Bokning',
+      BOOKING: 'Bokning',
       diagnostic: 'Diagnos',
-      service_request: 'Serviceförfrågan'
+      service_request: 'Serviceförfrågan',
+      SERVICE: 'Service',
+      REPAIR: 'Reparation',
+      INQUIRY: 'Förfrågan',
+      COMPLAINT: 'Reklamation',
+      OTHER: 'Övrigt'
     };
     return labels[intent] || intent || '-';
   };
@@ -240,14 +250,56 @@ export function LeadCard({ lead }) {
         </div>
       </div>
 
+      {/* Original Message */}
+      {lead.message && (
+        <div className="border-t pt-4">
+          <h3 className="font-medium text-sm text-muted-foreground mb-2 flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Originalmeddelande
+          </h3>
+          <div className="bg-muted/30 rounded-lg p-3 max-h-[200px] overflow-y-auto">
+            <p className="text-sm whitespace-pre-wrap break-words">{lead.message}</p>
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
-      <div className="flex gap-2 pt-2">
+      <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+        {lead.status !== 'won' && lead.status !== 'lost' && lead.status !== 'archived' && (
+          <ConvertLeadToJobButton
+            lead={lead}
+            customer={customer}
+            onSuccess={onSuccess}
+            variant="default"
+            size="sm"
+            className="flex-1"
+          />
+        )}
         {customer && (
-          <Button asChild variant="outline" className="flex-1">
+          <Button asChild variant="outline" size="sm" className="flex-1">
             <Link to={`/kund/${lead.customer_id}`}>
               <User className="h-4 w-4 mr-2" />
               Visa kund
             </Link>
+          </Button>
+        )}
+        {lead.status !== 'won' && lead.status !== 'lost' && lead.status !== 'archived' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={async () => {
+              try {
+                await leadsAPI.update(lead.id || lead.lead_id, { status: 'archived' });
+                toast.success('Förfrågan arkiverad');
+                onSuccess?.();
+              } catch (err) {
+                toast.error('Kunde inte arkivera');
+              }
+            }}
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            Arkivera
           </Button>
         )}
       </div>

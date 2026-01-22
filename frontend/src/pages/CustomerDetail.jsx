@@ -15,6 +15,7 @@ import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as Mail
 import { BoatForm } from '../components/forms/BoatForm';
 import { LeadForm } from '../components/forms/LeadForm';
 import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog';
+import { ConvertLeadToJobButton } from '../components/ConvertLeadToJobButton';
 import { boatsAPI, leadsAPI } from '../lib/api';
 import { toast } from 'sonner';
 
@@ -553,15 +554,26 @@ export const CustomerDetail = () => {
                       )}
                     </div>
                   </LeadForm>
-                  <ConfirmDeleteDialog
-                    title="Ta bort ärende"
-                    description={`Är du säker på att du vill ta bort ärendet "${lead.subject || lead.ai_summary || 'detta ärende'}"?`}
-                    onConfirm={async () => {
-                      await leadsAPI.delete(lead.id);
-                      toast.success('Ärende borttaget');
-                      fetchData();
-                    }}
-                  />
+                  <div className="flex gap-1 shrink-0">
+                    {lead.status !== 'won' && lead.status !== 'lost' && (
+                      <ConvertLeadToJobButton
+                        lead={lead}
+                        onSuccess={fetchData}
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                      />
+                    )}
+                    <ConfirmDeleteDialog
+                      title="Ta bort ärende"
+                      description={`Är du säker på att du vill ta bort ärendet "${lead.subject || lead.ai_summary || 'detta ärende'}"?`}
+                      onConfirm={async () => {
+                        await leadsAPI.delete(lead.id);
+                        toast.success('Ärende borttaget');
+                        fetchData();
+                      }}
+                    />
+                  </div>
                 </div>
               ))
             )}

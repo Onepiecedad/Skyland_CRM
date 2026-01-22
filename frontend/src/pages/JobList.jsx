@@ -23,7 +23,10 @@ import {
     Calendar,
     Wrench,
     User,
-    Trash2
+    Trash2,
+    Play,
+    CheckCircle,
+    Clock
 } from 'lucide-react';
 
 const STATUS_LABELS = {
@@ -93,6 +96,24 @@ export const JobList = () => {
             console.error('Error deleting job:', err);
             toast.error('Kunde inte ta bort jobbet');
             throw err;
+        }
+    };
+
+    const handleQuickStatusChange = async (e, jobId, newStatus) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            await jobsAPI.update(jobId, { status: newStatus });
+            const statusLabels = {
+                'in_progress': 'påbörjat',
+                'completed': 'klart',
+                'scheduled': 'inbokat'
+            };
+            toast.success(`Jobb markerat som ${statusLabels[newStatus] || newStatus}`);
+            fetchJobs();
+        } catch (err) {
+            console.error('Error updating job status:', err);
+            toast.error('Kunde inte uppdatera status');
         }
     };
 
@@ -507,6 +528,46 @@ export const JobList = () => {
                                                             {job.scheduled_time && ` kl ${job.scheduled_time}`}
                                                         </span>
                                                     </div>
+                                                )}
+                                            </div>
+
+                                            {/* Quick action buttons */}
+                                            <div className="flex gap-1.5 mt-3 pt-3 border-t" onClick={(e) => e.preventDefault()}>
+                                                {/* Start job button */}
+                                                {(job.status === 'pending' || job.status === 'scheduled') && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={(e) => handleQuickStatusChange(e, job.id, 'in_progress')}
+                                                        className="h-8 flex-1 text-xs"
+                                                    >
+                                                        <Play className="h-3 w-3 mr-1" />
+                                                        Påbörja
+                                                    </Button>
+                                                )}
+                                                {/* Complete job button */}
+                                                {job.status === 'in_progress' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="default"
+                                                        onClick={(e) => handleQuickStatusChange(e, job.id, 'completed')}
+                                                        className="h-8 flex-1 text-xs bg-green-600 hover:bg-green-700"
+                                                    >
+                                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                                        Klar
+                                                    </Button>
+                                                )}
+                                                {/* Waiting for parts */}
+                                                {job.status === 'in_progress' && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={(e) => handleQuickStatusChange(e, job.id, 'waiting_parts')}
+                                                        className="h-8 text-xs"
+                                                    >
+                                                        <Clock className="h-3 w-3 mr-1" />
+                                                        Väntar
+                                                    </Button>
                                                 )}
                                             </div>
                                         </div>
