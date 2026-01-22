@@ -13,6 +13,22 @@ import { sv } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { AlertCircle, RefreshCw, Mail, ArrowRight, Users, FileText, Calendar, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
+// Helper to translate AI categories to Swedish
+const translateCategory = (category) => {
+    if (!category) return null;
+    const translations = {
+        'QUOTE': 'Offert',
+        'SERVICE': 'Service',
+        'REPAIR': 'Reparation',
+        'INQUIRY': 'Förfrågan',
+        'BOOKING': 'Bokning',
+        'COMPLAINT': 'Reklamation',
+        'OTHER': 'Övrigt',
+        'SPAM': 'Spam'
+    };
+    return translations[category.toUpperCase()] || category;
+};
+
 export const Today = () => {
     const navigate = useNavigate();
     const [leads, setLeads] = useState([]);
@@ -141,7 +157,7 @@ export const Today = () => {
     });
 
     if (loading) return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
             <Header />
             <div className="flex-1 flex items-center justify-center">
                 <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -150,7 +166,7 @@ export const Today = () => {
     );
 
     if (error) return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
             <Header />
             <div className="flex-1 flex items-center justify-center p-4">
                 <Card className="max-w-md w-full">
@@ -173,7 +189,7 @@ export const Today = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background flex flex-col" {...handlers}>
+        <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0" {...handlers}>
             <Header />
             <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
             <main className="flex-1 container mx-auto px-4 py-4 sm:py-8 space-y-4 sm:space-y-8">
@@ -239,7 +255,7 @@ export const Today = () => {
                                                 <span className="text-xs text-muted-foreground">
                                                     {lead.created_at ? format(new Date(lead.created_at), 'd MMM', { locale: sv }) : ''}
                                                 </span>
-                                                {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
+                                                {lead.ai_category && <Badge variant="secondary" className="text-xs">{translateCategory(lead.ai_category)}</Badge>}
                                             </div>
                                         </div>
                                     );

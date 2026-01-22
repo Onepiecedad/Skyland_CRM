@@ -34,7 +34,7 @@ function App() {
                         path="/leads"
                         element={
                             <ProtectedRoute>
-                                <div className="min-h-screen bg-background flex flex-col">
+                                <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
                                     <Header />
                                     <main className="flex-1 container mx-auto px-4 py-6">
                                         <LeadsPage />
@@ -57,7 +57,7 @@ function App() {
                         path="/kunder"
                         element={
                             <ProtectedRoute>
-                                <div className="min-h-screen bg-background flex flex-col">
+                                <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
                                     <Header />
                                     <CustomerList />
                                 </div>
@@ -69,7 +69,7 @@ function App() {
                         path="/kund/:id"
                         element={
                             <ProtectedRoute>
-                                <div className="min-h-screen bg-background flex flex-col">
+                                <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
                                     <Header />
                                     <CustomerDetail />
                                 </div>
@@ -81,7 +81,7 @@ function App() {
                         path="/jobb"
                         element={
                             <ProtectedRoute>
-                                <div className="min-h-screen bg-background flex flex-col">
+                                <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
                                     <Header />
                                     <JobList />
                                 </div>
@@ -93,7 +93,7 @@ function App() {
                         path="/jobb/nytt"
                         element={
                             <ProtectedRoute>
-                                <div className="min-h-screen bg-background flex flex-col">
+                                <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
                                     <Header />
                                     <JobCreate />
                                 </div>
@@ -105,7 +105,7 @@ function App() {
                         path="/jobb/:id"
                         element={
                             <ProtectedRoute>
-                                <div className="min-h-screen bg-background flex flex-col">
+                                <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
                                     <Header />
                                     <JobDetail />
                                 </div>

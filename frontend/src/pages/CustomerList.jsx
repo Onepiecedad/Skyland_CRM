@@ -4,6 +4,16 @@ import { supabase } from '../lib/supabase';
 import { formatCustomerName } from '../lib/formatName';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +48,7 @@ export const CustomerList = () => {
     const [showNewCustomer, setShowNewCustomer] = useState(false);
     const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '' });
     const [creating, setCreating] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const fetchCustomers = async () => {
         setLoading(true);
@@ -45,11 +56,12 @@ export const CustomerList = () => {
 
         try {
             // Fetch customers with message count
+            // Use !messages_customer_id_fkey to resolve ambiguous relationship (PGRST201)
             const { data, error: fetchError } = await supabase
                 .from('customers')
                 .select(`
                     *,
-                    messages:messages(count)
+                    messages:messages!messages_customer_id_fkey(count)
                 `);
 
             if (fetchError) throw fetchError;
@@ -160,37 +172,11 @@ export const CustomerList = () => {
     const handleDelete = async () => {
         if (selectedIds.size === 0) return;
 
-        const confirmMessage = `Är du säker på att du vill ta bort ${selectedIds.size} kund${selectedIds.size > 1 ? 'er' : ''}? Detta tar även bort alla meddelanden och ärenden kopplade till dessa kunder.`;
-
-        if (!window.confirm(confirmMessage)) return;
-
         setDeleting(true);
         try {
             const idsArray = Array.from(selectedIds);
 
-            // Delete messages first (foreign key constraint with NO ACTION)
-            const { error: messagesError } = await supabase
-                .from('messages')
-                .delete()
-                .in('customer_id', idsArray);
-
-            if (messagesError) {
-                console.error('Error deleting messages:', messagesError);
-                throw messagesError;
-            }
-
-            // Delete leads (foreign key constraint with NO ACTION)
-            const { error: leadsError } = await supabase
-                .from('leads')
-                .delete()
-                .in('customer_id', idsArray);
-
-            if (leadsError) {
-                console.error('Error deleting leads:', leadsError);
-                throw leadsError;
-            }
-
-            // Delete customers (boats, jobs, activity_log have CASCADE or SET NULL)
+            // Delete customers - CASCADE handles messages, leads, boats, jobs automatically
             const { error: customersError } = await supabase
                 .from('customers')
                 .delete()
@@ -204,6 +190,7 @@ export const CustomerList = () => {
             // Update local state
             setCustomers(prev => prev.filter(c => !selectedIds.has(c.id)));
             setSelectedIds(new Set());
+            setShowDeleteConfirm(false);
         } catch (err) {
             console.error('Error deleting customers:', err);
             alert('Kunde inte ta bort kunder. Försök igen.');
@@ -294,7 +281,7 @@ export const CustomerList = () => {
     }
 
     return (
-        <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6" {...handlers}>
+        <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6 pb-20 md:pb-6" {...handlers}>
             <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -394,7 +381,7 @@ export const CustomerList = () => {
                     <Button
                         variant="destructive"
                         size="sm"
-                        onClick={handleDelete}
+                        onClick={() => setShowDeleteConfirm(true)}
                         disabled={deleting}
                         className="w-full sm:w-auto"
                     >
@@ -567,6 +554,28 @@ export const CustomerList = () => {
                     ))
                 )}
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Ta bort {selectedIds.size} kund{selectedIds.size > 1 ? 'er' : ''}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Detta tar även bort alla meddelanden, ärenden, båtar och jobb kopplade till dessa kunder. Denna åtgärd kan inte ångras.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleting}>Avbryt</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {deleting ? 'Tar bort...' : 'Ta bort'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

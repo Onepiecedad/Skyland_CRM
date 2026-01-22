@@ -28,6 +28,22 @@ export function LeadCard({ lead }) {
 
   if (!lead) return null;
 
+  // Helper to translate AI categories to Swedish
+  const translateCategory = (category) => {
+    if (!category) return null;
+    const translations = {
+      'QUOTE': 'Offert',
+      'SERVICE': 'Service',
+      'REPAIR': 'Reparation',
+      'INQUIRY': 'Förfrågan',
+      'BOOKING': 'Bokning',
+      'COMPLAINT': 'Reklamation',
+      'OTHER': 'Övrigt',
+      'SPAM': 'Spam'
+    };
+    return translations[category.toUpperCase()] || category;
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -114,7 +130,7 @@ export function LeadCard({ lead }) {
           <div className="flex flex-wrap gap-2">
             {lead.ai_category && (
               <Badge variant="secondary" className="text-xs">
-                {lead.ai_category}
+                {translateCategory(lead.ai_category)}
               </Badge>
             )}
             {lead.ai_priority && (

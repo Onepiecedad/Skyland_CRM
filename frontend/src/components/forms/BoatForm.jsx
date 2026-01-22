@@ -19,12 +19,13 @@ export function BoatForm({ boat, customerId, onSuccess, children }) {
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState({
         name: boat?.name || '',
+        make: boat?.make || '',
         model: boat?.model || '',
         year: boat?.year || '',
         registration_number: boat?.registration_number || '',
         engine_type: boat?.engine_type || '',
         engine_hours: boat?.engine_hours || '',
-        length_meters: boat?.length_meters || '',
+        length_feet: boat?.length_feet || '',
         notes: boat?.notes || '',
     });
 
@@ -45,15 +46,15 @@ export function BoatForm({ boat, customerId, onSuccess, children }) {
                 customer_id: customerId,
                 year: form.year ? parseInt(form.year) : null,
                 engine_hours: form.engine_hours ? parseInt(form.engine_hours) : null,
-                length_meters: form.length_meters ? parseFloat(form.length_meters) : null,
+                length_feet: form.length_feet ? parseFloat(form.length_feet) : null,
             };
 
             if (isEditing) {
                 await boatsAPI.update(boat.id, boatData);
-                toast.success('Båt uppdaterad');
+                toast.success('Fordon uppdaterat');
             } else {
                 await boatsAPI.create(boatData);
-                toast.success('Båt tillagd');
+                toast.success('Fordon tillagt');
             }
 
             setOpen(false);
@@ -88,19 +89,28 @@ export function BoatForm({ boat, customerId, onSuccess, children }) {
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Ship className="h-5 w-5" />
-                        {isEditing ? 'Redigera båt' : 'Lägg till båt'}
+                        {isEditing ? 'Redigera fordon' : 'Lägg till fordon'}
                     </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
-                            <Label htmlFor="name">Båtnamn *</Label>
+                            <Label htmlFor="name">Namn *</Label>
                             <Input
                                 id="name"
                                 value={form.name}
                                 onChange={handleChange('name')}
                                 placeholder="t.ex. Havanna"
                                 required
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="make">Märke</Label>
+                            <Input
+                                id="make"
+                                value={form.make}
+                                onChange={handleChange('make')}
+                                placeholder="t.ex. Sea Ray"
                             />
                         </div>
                         <div>
@@ -132,14 +142,14 @@ export function BoatForm({ boat, customerId, onSuccess, children }) {
                             />
                         </div>
                         <div>
-                            <Label htmlFor="length_meters">Längd (m)</Label>
+                            <Label htmlFor="length_feet">Längd (fot)</Label>
                             <Input
-                                id="length_meters"
+                                id="length_feet"
                                 type="number"
                                 step="0.1"
-                                value={form.length_meters}
-                                onChange={handleChange('length_meters')}
-                                placeholder="t.ex. 10.5"
+                                value={form.length_feet}
+                                onChange={handleChange('length_feet')}
+                                placeholder="t.ex. 35"
                             />
                         </div>
                         <div>

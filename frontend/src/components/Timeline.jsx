@@ -76,11 +76,64 @@ const cleanEmailBody = (text) => {
 
     let cleaned = text;
 
-    // Split into lines for processing
+    // First pass: Remove entire quoted sections that start with common reply headers
+    // These patterns match the start of a quoted reply chain and everything after
+    const replyHeaderPatterns = [
+        /Den (\d{1,2}|tors|fre|mån|tis|ons|lör|sön)[^\n]*\d{4}[^\n]*skrev/gi,  // "Den 6 januari 2026... skrev" or "Den tors 8 jan..."
+        /\d{1,2}\s+(januari|februari|mars|april|maj|juni|juli|augusti|september|oktober|november|december)\s+\d{4}/gi, // Full Swedish month
+        /\d{1,2}\s+(jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)\.?\s+\d{4}/gi, // Abbreviated Swedish month
+        /\d{1,2}\s+\w+\.?\s+\d{4}\s+\d{1,2}:\d{2}.*?skrev/gis,     // "6 jan. 2026 kl. 18:59 skrev..."
+        /On\s+\w+\s+\d{1,2},?\s+\d{4}.*?wrote:/gis,                 // "On Mon Jan 6, 2024... wrote:"
+        /From:.*?<.*?>.*?Subject:/gis,                              // Email headers
+        /Från:.*?Ämne:/gis,                                         // Swedish email headers
+        /centraleuropeisk\s+(normal)?tid/gi,                        // "centraleuropeisk normaltid" timezone indicator
+    ];
+
+    // Find the earliest match of any reply header and truncate there
+    let earliestCutoff = cleaned.length;
+    for (const pattern of replyHeaderPatterns) {
+        const match = cleaned.match(pattern);
+        if (match && match.index !== undefined && match.index < earliestCutoff) {
+            earliestCutoff = match.index;
+        }
+    }
+
+    if (earliestCutoff < cleaned.length) {
+        cleaned = cleaned.substring(0, earliestCutoff);
+    }
+
+    // STEP 2: Remove inline "> > > >" patterns that appear within text
+    // These often appear when email clients don't properly format quotes
+    cleaned = cleaned.replace(/(\s*>\s*){2,}/g, ' '); // Multiple consecutive > markers
+    cleaned = cleaned.replace(/\s*>\s*>/g, ' '); // " > >" patterns
+    cleaned = cleaned.replace(/>\s+/g, ' '); // Single > followed by space
+
+    // Also remove email addresses with angle brackets that indicate quote chains
+    cleaned = cleaned.replace(/<[^>]+@[^>]+>:?\s*/g, '');
+
+    // STEP 3: Cut at "skrev" patterns followed by names/emails (quote attributions)
+    const skrevMatch = cleaned.match(/,?\s*skrev\s+[A-Za-zÀ-ÿ\s]+[<@]/i);
+    if (skrevMatch && skrevMatch.index && skrevMatch.index > 50) {
+        cleaned = cleaned.substring(0, skrevMatch.index);
+    }
+
+    // Cut at "centraleuropeisk" timezone patterns
+    const timezoneMatch = cleaned.match(/centraleuropeisk/i);
+    if (timezoneMatch && timezoneMatch.index && timezoneMatch.index > 50) {
+        cleaned = cleaned.substring(0, timezoneMatch.index);
+    }
+
+    // Remove date patterns that start quote attributions
+    cleaned = cleaned.replace(/\d{1,2}\s+(jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)\.?\s+\d{4},?\s+\d{1,2}:\d{2}[^.!?]*/gi, '');
+
+    // Clean "Skickat från min iPhone" and similar inline
+    cleaned = cleaned.replace(/Skickat från min iPhone[^.!?]*/gi, '');
+    cleaned = cleaned.replace(/Sent from my [^.!?]*/gi, '');
+
+    // Split into lines for line-by-line processing
     const lines = cleaned.split('\n');
     const cleanedLines = [];
-    let inQuotedSection = false;
-    let inSignature = false;
+    let consecutiveQuotedLines = 0;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -89,84 +142,55 @@ const cleanEmailBody = (text) => {
         // Skip empty lines at the start
         if (cleanedLines.length === 0 && trimmedLine === '') continue;
 
-        // Detect start of quoted section (lines starting with >)
-        if (trimmedLine.startsWith('>')) {
-            inQuotedSection = true;
-            continue; // Skip quoted lines
+        // Count leading '>' characters - handles "> > > >" style quotes
+        const quoteMatch = trimmedLine.match(/^[>\s]+/);
+        const quoteDepth = quoteMatch ? (quoteMatch[0].match(/>/g) || []).length : 0;
+
+        // Skip any line that has quote markers
+        if (quoteDepth > 0) {
+            consecutiveQuotedLines++;
+            continue;
         }
 
         // Detect email headers that indicate start of quoted content
-        // "Den [date] skrev [name]:" - Swedish
         if (/^Den\s+\d/.test(trimmedLine) && trimmedLine.includes('skrev')) {
-            inQuotedSection = true;
-            continue;
+            break; // Stop processing, rest is quoted content
         }
-
-        // "[date] [time] skrev [name]:" - Swedish variant
-        if (/^\d{1,2}\s+\w+\s+\d{4}/.test(trimmedLine) && trimmedLine.includes('skrev')) {
-            inQuotedSection = true;
-            continue;
+        if (/^\d{1,2}\s+\w+\.?\s+\d{4}/.test(trimmedLine) && (trimmedLine.includes('skrev') || trimmedLine.includes('kl.'))) {
+            break; // Stop processing
         }
-
-        // "On [date], [name] wrote:" - English
         if (/^On\s+\w/.test(trimmedLine) && /wrote:?$/i.test(trimmedLine)) {
-            inQuotedSection = true;
-            continue;
+            break; // Stop processing
         }
 
-        // "From: [name]" header
-        if (/^From:\s/.test(trimmedLine) || /^Från:\s/.test(trimmedLine)) {
-            inQuotedSection = true;
-            continue;
-        }
-
-        // "Sent from my iPhone/Android" - skip these
+        // "Skickat från min iPhone" - skip and stop
         if (/^Skickat från min iPhone/i.test(trimmedLine) ||
             /^Sent from my/i.test(trimmedLine) ||
             /^Skickat från /i.test(trimmedLine)) {
             continue;
         }
 
-        // Detect signature blocks
-        if (trimmedLine === '--' || trimmedLine === '-- ') {
-            inSignature = true;
-            continue;
-        }
-
-        // "Med vänlig hälsning" often starts signature block
-        if (/^Med vänlig hälsning/i.test(trimmedLine) ||
-            /^Mvh/i.test(trimmedLine) ||
-            /^Best regards/i.test(trimmedLine) ||
-            /^Kind regards/i.test(trimmedLine) ||
-            /^Vänliga hälsningar/i.test(trimmedLine)) {
-            // Include this line but might start signature
-            cleanedLines.push(line);
-            continue;
-        }
-
-        // If we're in a quoted section and hit a non-empty, non-quoted line,
-        // it might be the end of quoting OR continuation of original message
-        // Be conservative - if line doesn't start with > and isn't a header, might be new content
-        if (inQuotedSection && trimmedLine !== '' && !trimmedLine.startsWith('>')) {
-            // Check if this looks like continuation of reply chain
-            if (/^[<>\[\]_\-=]+$/.test(trimmedLine)) {
-                continue; // Skip separator lines
-            }
-            // If it's a short line with just name/email, skip
-            if (trimmedLine.includes('@') && trimmedLine.length < 60) {
-                continue;
-            }
-        }
-
-        // Skip if we're in quoted section or signature
-        if (inQuotedSection || inSignature) continue;
-
         // Skip lines that are just email formatting/separators
         if (/^[>\s_\-=]{10,}$/.test(trimmedLine)) continue;
 
-        // Skip very short lines that are likely artifacts
-        if (trimmedLine.length < 3 && /^[>\-_=\s]+$/.test(trimmedLine)) continue;
+        // Skip email addresses in angle brackets patterns like "<email@domain.com>:"
+        if (/^<[^>]+>:?\s*$/.test(trimmedLine)) continue;
 
+        // Skip lines that look like quoted email addresses with ">" prefix pattern
+        if (/^[>\s]*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[>\s:]*$/.test(trimmedLine)) continue;
+
+        // After several consecutive quoted lines, be more aggressive about what follows
+        if (consecutiveQuotedLines > 2) {
+            // If this non-quoted line follows many quoted lines and looks like continuation
+            if (trimmedLine.includes('@') && trimmedLine.length < 80) {
+                continue; // Skip email addresses after quotes
+            }
+            if (/^[A-Za-zÀ-ÿ]+ [A-Za-zÀ-ÿ]+\s*$/.test(trimmedLine) && trimmedLine.length < 40) {
+                continue; // Skip name-only lines after quotes
+            }
+        }
+
+        consecutiveQuotedLines = 0;
         cleanedLines.push(line);
     }
 
@@ -180,6 +204,15 @@ const cleanEmailBody = (text) => {
 
     // Trim overall
     cleaned = cleaned.trim();
+
+    // If we ended up with very little content, return something meaningful
+    if (cleaned.length < 10) {
+        // Try to extract at least the first meaningful sentence from original
+        const original = text.split('\n').find(l => l.trim().length > 20 && !l.trim().startsWith('>'));
+        if (original) {
+            return original.trim().substring(0, 300);
+        }
+    }
 
     return cleaned;
 };

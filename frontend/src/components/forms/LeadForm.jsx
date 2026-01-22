@@ -4,87 +4,90 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
 import { leadsAPI } from '../../lib/api';
 import { toast } from 'sonner';
+import { Plus, Pencil, FileText, Save, X } from 'lucide-react';
 
 export function LeadForm({ lead = null, customerId = null, onSuccess, children }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     customer_id: customerId || lead?.customer_id || '',
-    intent: lead?.intent || '',
+    subject: lead?.subject || '',
+    message: lead?.message || '',
+    ai_category: lead?.ai_category || '',
     status: lead?.status || 'new',
-    channel: lead?.channel || '',
-    summary: lead?.summary || '',
-    description: lead?.description || '',
-    urgency: lead?.urgency || 'low',
-    urgency_score: lead?.urgency_score || 1,
-    expected_close_date: lead?.expected_close_date || ''
   });
+
+  const isEditing = !!lead;
+
+  const categories = [
+    { value: 'QUOTE', label: 'Offert' },
+    { value: 'SERVICE', label: 'Service' },
+    { value: 'REPAIR', label: 'Reparation' },
+    { value: 'INQUIRY', label: 'Förfrågan' },
+    { value: 'BOOKING', label: 'Bokning' },
+    { value: 'COMPLAINT', label: 'Reklamation' },
+    { value: 'OTHER', label: 'Övrigt' },
+  ];
+
+  const statuses = [
+    { value: 'new', label: 'Ny' },
+    { value: 'open', label: 'Öppen' },
+    { value: 'in_progress', label: 'Pågående' },
+    { value: 'resolved', label: 'Löst' },
+    { value: 'closed', label: 'Stängd' },
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.customer_id) {
-      toast.error('Customer ID is required');
+
+    if (!formData.subject?.trim()) {
+      toast.error('Ämne krävs');
       return;
     }
-    
+
     setLoading(true);
 
     try {
-      let response;
-      if (lead) {
-        // Update existing lead
-        const { customer_id, ...updateData } = formData; // Don't update customer_id
-        response = await leadsAPI.update(lead.lead_id, updateData);
-        toast.success('Lead updated successfully');
+      const dataToSave = {
+        customer_id: customerId || formData.customer_id,
+        subject: formData.subject,
+        message: formData.message,
+        ai_category: formData.ai_category || null,
+        status: formData.status,
+      };
+
+      if (isEditing) {
+        await leadsAPI.update(lead.id || lead.lead_id, dataToSave);
+        toast.success('Ärende uppdaterat');
       } else {
-        // Create new lead
-        response = await leadsAPI.create(formData);
-        toast.success('Lead created successfully');
+        await leadsAPI.create(dataToSave);
+        toast.success('Ärende skapat');
       }
 
       if (onSuccess) {
-        onSuccess(response.data);
+        onSuccess();
       }
-      
+
       setOpen(false);
-      
+
       // Reset form if creating new lead
-      if (!lead) {
+      if (!isEditing) {
         setFormData({
           customer_id: customerId || '',
-          intent: '',
+          subject: '',
+          message: '',
+          ai_category: '',
           status: 'new',
-          channel: '',
-          summary: '',
-          description: '',
-          urgency: 'low',
-          urgency_score: 1,
-          expected_close_date: ''
         });
       }
     } catch (error) {
       console.error('Error saving lead:', error);
-      toast.error(lead ? 'Failed to update lead' : 'Failed to create lead');
+      toast.error(isEditing ? 'Kunde inte uppdatera ärende' : 'Kunde inte skapa ärende');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleChange = (field) => (value) => {
-    if (field === 'urgency_score') {
-      setFormData(prev => ({
-        ...prev,
-        [field]: parseInt(value) || 1
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
     }
   };
 
@@ -95,153 +98,107 @@ export function LeadForm({ lead = null, customerId = null, onSuccess, children }
     }));
   };
 
+  const handleSelectChange = (field) => (value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {children}
+        {children || (
+          <Button variant={isEditing ? "ghost" : "outline"} size={isEditing ? "icon" : "sm"}>
+            {isEditing ? <Pencil className="h-4 w-4" /> : (
+              <>
+                <Plus className="h-4 w-4 mr-1" />
+                Nytt ärende
+              </>
+            )}
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {lead ? 'Edit Lead' : 'New Lead'}
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            {isEditing ? 'Redigera ärende' : 'Nytt ärende'}
           </DialogTitle>
-          <DialogDescription>
-            {lead 
-              ? 'Make changes to lead information here.' 
-              : 'Add a new lead to track opportunities.'
-            }
-          </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!customerId && (
-            <div className="space-y-2">
-              <Label htmlFor="customer_id">Customer ID *</Label>
-              <Input
-                id="customer_id"
-                value={formData.customer_id}
-                onChange={handleInputChange('customer_id')}
-                placeholder="Enter customer UUID"
-                required
-                disabled={!!lead} // Can't change customer for existing lead
-              />
-            </div>
-          )}
-          
-          <div className="space-y-2">
-            <Label htmlFor="summary">Summary *</Label>
+          <div>
+            <Label htmlFor="subject">Ämne *</Label>
             <Input
-              id="summary"
-              value={formData.summary}
-              onChange={handleInputChange('summary')}
-              placeholder="Brief lead summary"
+              id="subject"
+              value={formData.subject}
+              onChange={handleInputChange('subject')}
+              placeholder="t.ex. Service av utombordare"
               required
             />
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="ai_category">Kategori</Label>
+              <Select value={formData.ai_category} onValueChange={handleSelectChange('ai_category')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Välj kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status} onValueChange={handleSelectChange('status')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Välj status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="message">Beskrivning</Label>
             <Textarea
-              id="description"
-              value={formData.description}
-              onChange={handleInputChange('description')}
-              placeholder="Detailed description of the lead"
-              rows={3}
+              id="message"
+              value={formData.message}
+              onChange={handleInputChange('message')}
+              placeholder="Beskriv ärendet..."
+              rows={4}
             />
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={handleChange('status')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="contacted">Contacted</SelectItem>
-                  <SelectItem value="qualified">Qualified</SelectItem>
-                  <SelectItem value="negotiating">Negotiating</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                  <SelectItem value="lost">Lost</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="urgency">Urgency</Label>
-              <Select value={formData.urgency} onValueChange={handleChange('urgency')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select urgency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="intent">Intent</Label>
-              <Input
-                id="intent"
-                value={formData.intent}
-                onChange={handleInputChange('intent')}
-                placeholder="e.g., service_request, quote"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="channel">Channel</Label>
-              <Input
-                id="channel"
-                value={formData.channel}
-                onChange={handleInputChange('channel')}
-                placeholder="e.g., webform, email, phone"
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="urgency_score">Urgency Score (1-10)</Label>
-              <Input
-                id="urgency_score"
-                type="number"
-                min="1"
-                max="10"
-                value={formData.urgency_score}
-                onChange={handleInputChange('urgency_score')}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="expected_close_date">Expected Close Date</Label>
-              <Input
-                id="expected_close_date"
-                type="date"
-                value={formData.expected_close_date}
-                onChange={handleInputChange('expected_close_date')}
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-end gap-2 pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setOpen(false)}
               disabled={loading}
             >
-              Cancel
+              <X className="h-4 w-4 mr-1" />
+              Avbryt
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : (lead ? 'Update' : 'Create')}
+              <Save className="h-4 w-4 mr-1" />
+              {loading ? 'Sparar...' : (isEditing ? 'Uppdatera' : 'Skapa')}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

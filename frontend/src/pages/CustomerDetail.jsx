@@ -13,8 +13,26 @@ import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { AlertCircle, RefreshCw, Pencil, Save, X, ArrowLeft, Phone, Mail as MailIcon, MapPin, Wrench, Trash2, StickyNote, Ship, Plus } from 'lucide-react';
 import { BoatForm } from '../components/forms/BoatForm';
-import { boatsAPI } from '../lib/api';
+import { LeadForm } from '../components/forms/LeadForm';
+import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog';
+import { boatsAPI, leadsAPI } from '../lib/api';
 import { toast } from 'sonner';
+
+// Helper to translate AI categories to Swedish
+const translateCategory = (category) => {
+  if (!category) return null;
+  const translations = {
+    'QUOTE': 'Offert',
+    'SERVICE': 'Service',
+    'REPAIR': 'Reparation',
+    'INQUIRY': 'Förfrågan',
+    'BOOKING': 'Bokning',
+    'COMPLAINT': 'Reklamation',
+    'OTHER': 'Övrigt',
+    'SPAM': 'Spam'
+  };
+  return translations[category.toUpperCase()] || category;
+};
 
 export const CustomerDetail = () => {
   const { id } = useParams();
@@ -136,35 +154,13 @@ export const CustomerDetail = () => {
   };
 
   const handleDelete = async () => {
-    const confirmMessage = `Är du säker på att du vill ta bort ${formatCustomerName(customer.name, customer.email)}? Detta tar även bort alla meddelanden och ärenden kopplade till denna kund.`;
+    const confirmMessage = `Är du säker på att du vill ta bort ${formatCustomerName(customer.name, customer.email)}? Detta tar även bort alla meddelanden, ärenden, båtar och jobb kopplade till denna kund.`;
 
     if (!window.confirm(confirmMessage)) return;
 
     setDeleting(true);
     try {
-      // Delete messages first (foreign key constraint with NO ACTION)
-      const { error: messagesError } = await supabase
-        .from('messages')
-        .delete()
-        .eq('customer_id', id);
-
-      if (messagesError) {
-        console.error('Error deleting messages:', messagesError);
-        throw messagesError;
-      }
-
-      // Delete leads (foreign key constraint with NO ACTION)
-      const { error: leadsError } = await supabase
-        .from('leads')
-        .delete()
-        .eq('customer_id', id);
-
-      if (leadsError) {
-        console.error('Error deleting leads:', leadsError);
-        throw leadsError;
-      }
-
-      // Delete customer (boats, jobs, activity_log have CASCADE or SET NULL)
+      // Delete customer - CASCADE handles messages, leads, boats, jobs automatically
       const { error: customerError } = await supabase
         .from('customers')
         .delete()
@@ -175,11 +171,12 @@ export const CustomerDetail = () => {
         throw customerError;
       }
 
+      toast.success('Kund borttagen');
       // Navigate back to customer list
       navigate('/kunder');
     } catch (err) {
       console.error('Error deleting customer:', err);
-      alert('Kunde inte ta bort kunden. Försök igen.');
+      toast.error('Kunde inte ta bort kunden. Försök igen.');
       setDeleting(false);
     }
   };
@@ -458,12 +455,12 @@ export const CustomerDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Båtar */}
+        {/* Båtar/Fordon */}
         <Card>
           <CardHeader className="pb-2 sm:pb-4 flex flex-row items-center justify-between">
             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <Ship className="h-4 w-4" />
-              Båtar
+              Båtar/Fordon
             </CardTitle>
             <BoatForm customerId={id} onSuccess={fetchData}>
               <Button variant="outline" size="sm">
@@ -474,13 +471,13 @@ export const CustomerDetail = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             {boats.length === 0 ? (
-              <p className="text-muted-foreground text-center py-2 text-sm">Ingen båt registrerad</p>
+              <p className="text-muted-foreground text-center py-2 text-sm">Inget fordon registrerat</p>
             ) : (
               boats.map((boat) => (
                 <div key={boat.id} className="p-3 border rounded-lg bg-muted/20 flex justify-between items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm sm:text-base">
-                      {boat.name || `${boat.make || ''} ${boat.model || ''}`.trim() || 'Namnlös båt'}
+                      {boat.name || `${boat.make || ''} ${boat.model || ''}`.trim() || 'Namnlöst fordon'}
                     </div>
                     {boat.model && (
                       <div className="text-xs sm:text-sm text-muted-foreground">
@@ -504,23 +501,15 @@ export const CustomerDetail = () => {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </BoatForm>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={async () => {
-                        if (!window.confirm('Är du säker på att du vill ta bort denna båt?')) return;
-                        try {
-                          await boatsAPI.delete(boat.id);
-                          toast.success('Båt borttagen');
-                          fetchData();
-                        } catch (error) {
-                          toast.error('Kunde inte ta bort båt');
-                        }
+                    <ConfirmDeleteDialog
+                      title="Ta bort fordon"
+                      description={`Är du säker på att du vill ta bort "${boat.name || 'detta fordon'}"?`}
+                      onConfirm={async () => {
+                        await boatsAPI.delete(boat.id);
+                        toast.success('Fordon borttaget');
+                        fetchData();
                       }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    />
                   </div>
                 </div>
               ))
@@ -530,34 +519,49 @@ export const CustomerDetail = () => {
 
         {/* Ärenden (Leads) */}
         <Card>
-          <CardHeader className="pb-2 sm:pb-4">
+          <CardHeader className="pb-2 sm:pb-4 flex flex-row items-center justify-between">
             <CardTitle className="text-base sm:text-lg">Ärenden</CardTitle>
+            <LeadForm customerId={id} onSuccess={fetchData}>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Nytt ärende
+              </Button>
+            </LeadForm>
           </CardHeader>
           <CardContent className="space-y-3">
             {leads.length === 0 ? (
               <p className="text-muted-foreground text-center py-2 text-sm">Inga ärenden</p>
             ) : (
               leads.map((lead) => (
-                <div key={lead.id} className="border-b last:border-0 pb-3 last:pb-0">
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm sm:text-base">
+                <div key={lead.id} className="p-3 border rounded-lg bg-muted/20 flex justify-between items-start gap-2 group">
+                  <LeadForm lead={lead} customerId={id} onSuccess={fetchData}>
+                    <div className="flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity">
+                      <div className="font-medium text-sm sm:text-base group-hover:text-primary transition-colors">
                         {lead.ai_summary || lead.subject || 'Inget ämne'}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {lead.created_at ? format(new Date(lead.created_at), 'd MMM yyyy', { locale: sv }) : ''}
                       </div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {lead.status && <Badge variant="outline" className="text-xs">{lead.status}</Badge>}
+                        {lead.ai_category && <Badge variant="secondary" className="text-xs">{translateCategory(lead.ai_category)}</Badge>}
+                      </div>
+                      {lead.message && (
+                        <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap line-clamp-2">
+                          {lead.message}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex flex-col gap-1 items-end shrink-0">
-                      {lead.status && <Badge variant="outline" className="text-xs">{lead.status}</Badge>}
-                      {lead.ai_category && <Badge variant="secondary" className="text-xs">{lead.ai_category}</Badge>}
-                    </div>
-                  </div>
-                  {lead.message && (
-                    <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap">
-                      {lead.message}
-                    </p>
-                  )}
+                  </LeadForm>
+                  <ConfirmDeleteDialog
+                    title="Ta bort ärende"
+                    description={`Är du säker på att du vill ta bort ärendet "${lead.subject || lead.ai_summary || 'detta ärende'}"?`}
+                    onConfirm={async () => {
+                      await leadsAPI.delete(lead.id);
+                      toast.success('Ärende borttaget');
+                      fetchData();
+                    }}
+                  />
                 </div>
               ))
             )}

@@ -214,6 +214,7 @@ export const Messages = () => {
         setError(null);
 
         try {
+            // Use !messages_customer_id_fkey to resolve ambiguous relationship (PGRST201)
             const { data, error: fetchError } = await supabase
                 .from('messages')
                 .select(`
@@ -227,7 +228,7 @@ export const Messages = () => {
                     direction,
                     received_at,
                     customer_id,
-                    customers (
+                    customers!messages_customer_id_fkey (
                         id,
                         name,
                         email
@@ -414,7 +415,7 @@ export const Messages = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background flex flex-col" {...handlers}>
+        <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0" {...handlers}>
             <Header />
             <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
             <main className="flex-1 container mx-auto px-4 py-4 sm:py-6">
@@ -516,7 +517,22 @@ export const Messages = () => {
                                 const rawContent = message.body_full || message.body_preview || '';
                                 const fullContent = cleanEmailBody(fixSwedishEncoding(decodeHTML(decodeQuotedPrintable(rawContent))));
                                 const subject = fixSwedishEncoding(decodeQuotedPrintable(message.subject || 'Inget ämne'));
-                                const fromName = fixSwedishEncoding(decodeQuotedPrintable(message.from_name || message.from_address || 'Okänd'));
+
+                                // Extract sender name - try multiple sources
+                                let fromName = message.from_name;
+                                if (!fromName || fromName.trim() === '') {
+                                    // Try to extract name from "Name <email>" format in from_email
+                                    const emailMatch = message.from_email?.match(/^([^<]+)\s*<[^>]+>$/);
+                                    if (emailMatch) {
+                                        fromName = emailMatch[1].trim();
+                                    } else if (message.customers?.name) {
+                                        // Fall back to linked customer name
+                                        fromName = message.customers.name;
+                                    } else {
+                                        fromName = message.from_email || 'Okänd';
+                                    }
+                                }
+                                fromName = fixSwedishEncoding(decodeQuotedPrintable(fromName));
 
                                 // Determine if we should show expand button
                                 const hasMore = fullContent.length > 300;
