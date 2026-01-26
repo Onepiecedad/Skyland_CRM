@@ -315,6 +315,7 @@ export const Messages = () => {
                     direction,
                     received_at,
                     customer_id,
+                    seen,
                     customers!messages_customer_id_fkey (
                         id,
                         name,
