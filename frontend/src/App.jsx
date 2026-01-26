@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { FloatingActionButton } from './components/FloatingActionButton';
+import { AiAssistant } from './components/AiAssistant';
 import { Login } from './pages/Login';
 import { Today } from './pages/Today';
 import { Messages } from './pages/Messages';
@@ -116,6 +117,7 @@ function App() {
                 </Routes>
                 <BottomNav />
                 <FloatingActionButton />
+                <AiAssistant />
             </BrowserRouter>
             <Toaster />
         </div>
