@@ -11,7 +11,10 @@ import {
     Loader2,
     Sparkles,
     ChevronDown,
-    Minimize2
+    Minimize2,
+    Mail,
+    CheckCircle,
+    XCircle
 } from 'lucide-react';
 
 // Helper function to clean email content for AI context
@@ -78,6 +81,7 @@ DINA ROLLER:
 2. Hjälpa till att formulera professionella mail och svar
 3. Ge översikter och statistik
 4. Söka och hitta information i ALL data
+5. SKICKA MAIL på kommando - du kan skicka riktiga mail åt användaren!
 
 REGLER:
 - Svara ALLTID på svenska
@@ -86,6 +90,12 @@ REGLER:
 - Om du inte hittar något, var ärlig och föreslå alternativ
 - Formatera svar med emojis för att göra dem lättlästa
 - När någon frågar om en person, sök i ALLA tabeller (kunder, leads, meddelanden)
+
+SKICKA MAIL:
+- När användaren ber dig skicka ett mail, använd send_email-funktionen
+- Skriv professionella, vänliga mail som passar marinmekanikerverksamheten
+- Signera med "Med vänliga hälsningar, Thomas Guldager / Marinmekaniker AB"
+- Användaren kommer se mailet och kan bekräfta eller avbryta innan det skickas
 
 NUVARANDE DATA I CRM:
 - Totalt ${context?.stats?.leads || 0} leads, ${context?.stats?.customers || 0} kunder, ${context?.stats?.jobs || 0} jobb, ${context?.stats?.messages || 0} meddelanden
@@ -121,12 +131,13 @@ export function AiAssistant() {
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: 'Hej! 👋 Jag är din AI-assistent för CRM:et. Fråga mig om kunder, leads, jobb eller be mig hjälpa dig formulera mail!\n\nExempel:\n• "Berätta om Jan Gustafsson"\n• "Visa nya leads"\n• "Hur många kunder har vi?"\n• "Skriv ett mail till..."'
+            content: 'Hej! 👋 Jag är din AI-assistent för CRM:et. Jag kan svara på frågor om kunder och leads, och **skicka mail** åt dig!\n\nExempel:\n• "Berätta om Jan Gustafsson"\n• "Visa nya leads"\n• "Skicka mail till test@example.com och tacka för förfrågan"\n• "Svara på senaste mailet från..."'
         }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [crmContext, setCrmContext] = useState(null);
+    const [pendingEmail, setPendingEmail] = useState(null);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const location = useLocation();
@@ -227,12 +238,12 @@ export function AiAssistant() {
     };
 
     // Anropa AI via Supabase Edge Function (säker - API-nyckel på servern)
-    const callAI = async (messages, context) => {
+    const callAI = async (messages, context, confirmSendEmail = null) => {
         const systemMessage = { role: 'system', content: getSystemPrompt(context) };
         const allMessages = [systemMessage, ...messages.map(m => ({ role: m.role, content: m.content }))];
 
         const { data, error } = await supabase.functions.invoke('ai-assistant', {
-            body: { messages: allMessages }
+            body: { messages: allMessages, confirmSendEmail }
         });
 
         if (error) {
@@ -243,8 +254,8 @@ export function AiAssistant() {
             throw new Error(data.error);
         }
 
-
-        return data?.message || 'Kunde inte generera svar.';
+        // Return full data to handle pendingEmail
+        return data;
     };
 
     // Skicka meddelande till AI
@@ -266,12 +277,17 @@ export function AiAssistant() {
             }
 
             // Anropa AI via Edge Function
-            const assistantMessage = await callAI(
+            const response = await callAI(
                 newMessages.filter(m => m.role !== 'system').slice(-10),
                 context
             );
 
-            setMessages(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
+            // Check if AI wants to send an email (needs confirmation)
+            if (response.pendingEmail) {
+                setPendingEmail(response.pendingEmail);
+            }
+
+            setMessages(prev => [...prev, { role: 'assistant', content: response.message || 'Kunde inte generera svar.' }]);
         } catch (error) {
             console.error('AI Assistant error:', error);
             setMessages(prev => [...prev, {
@@ -288,6 +304,35 @@ export function AiAssistant() {
             e.preventDefault();
             sendMessage();
         }
+    };
+
+    // Confirm sending the pending email
+    const confirmEmail = async () => {
+        if (!pendingEmail) return;
+
+        setIsLoading(true);
+        try {
+            const response = await callAI([], crmContext, pendingEmail);
+            setMessages(prev => [...prev, { role: 'assistant', content: response.message }]);
+            setPendingEmail(null);
+        } catch (error) {
+            console.error('Error sending email:', error);
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `❌ Kunde inte skicka mailet: ${error.message}`
+            }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Cancel sending the pending email
+    const cancelEmail = () => {
+        setPendingEmail(null);
+        setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: '👍 Okej, mailet skickades inte. Behöver du hjälp med något annat?'
+        }]);
     };
 
     // Stängd knapp
@@ -396,6 +441,30 @@ export function AiAssistant() {
                                 </div>
                             </div>
                         )}
+
+                        {/* Email confirmation buttons */}
+                        {pendingEmail && !isLoading && (
+                            <div className="flex gap-2 justify-center mt-2">
+                                <Button
+                                    onClick={confirmEmail}
+                                    size="sm"
+                                    className="bg-green-500 hover:bg-green-600 text-white"
+                                >
+                                    <Mail className="h-4 w-4 mr-1" />
+                                    Skicka mail
+                                </Button>
+                                <Button
+                                    onClick={cancelEmail}
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-300 text-red-600 hover:bg-red-50"
+                                >
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Avbryt
+                                </Button>
+                            </div>
+                        )}
+
                         <div ref={messagesEndRef} />
                     </div>
 
