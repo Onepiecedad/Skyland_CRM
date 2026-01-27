@@ -1,5 +1,122 @@
 # Utvecklingslogg
 
+## 2026-01-26 - AI-Assistent med GPT-4o Integration
+
+### 📋 Projektöversikt
+
+**Mål:** Implementera en AI-assistent i CRM:et som kan svara på frågor om kunder, leads, jobb och meddelanden.
+
+**Status:** ✅ KLART & DEPLOYAT
+
+### Vad som byggdes
+
+| Komponent | Beskrivning |
+|-----------|-------------|
+| **AiAssistant.jsx** | Flytande chattbubbla i dashboard med GPT-4o |
+| **Supabase Edge Function** | Säker serverless-funktion för OpenAI-anrop |
+| **CRM-dataåtkomst** | AI:n har tillgång till kunder, leads, jobb OCH meddelanden |
+
+### Teknisk implementation
+
+#### 1. Frontend: AiAssistant-komponent
+
+```
+frontend/src/components/AiAssistant.jsx
+```
+
+- Flytande lila ✨-knapp i nedre högra hörnet
+- Minimera/expandera funktionalitet
+- Realtids-chattgränssnitt med bubblor
+- Laddar CRM-kontext (kunder, leads, jobb, meddelanden) vid öppning
+- Skickar frågor till Supabase Edge Function
+
+#### 2. Backend: Supabase Edge Function
+
+```
+supabase/functions/ai-assistant/index.ts
+```
+
+- Tar emot frågor från frontend
+- Anropar OpenAI GPT-4o-mini med CRM-kontext
+- API-nyckel säkert lagrad som `supabase secrets`
+- Retunerar AI-svar till frontend
+
+#### 3. Data AI:n har tillgång till
+
+| Tabell | Antal poster | Information |
+|--------|--------------|-------------|
+| `customers` | 100 senaste | Namn, email, telefon, båtmodell, motor |
+| `leads` | 30 senaste | Namn, email, ämne, AI-sammanfattning, kategori |
+| `jobs` | 30 senaste | Titel, status, schemalagt datum |
+| `messages` | 30 senaste | Avsändare, ämne, förhandsvisning, datum |
+
+### Exempelfrågor som fungerar
+
+- "Berätta om Jan Gustafsson" → Hittar i leads OCH meddelanden
+- "Vad vill Lars Johansson i sitt senaste meddelande?" → Läser meddelandehistorik
+- "Hur många kunder har vi?" → 50 kunder
+- "Visa nya leads" → Listar förfrågningar
+- "Skriv ett mail till..." → Genererar professionellt mail
+
+### Säkerhetsåtgärder
+
+**Problem:** OpenAI API-nyckel låg ursprungligen i frontend `.env` (synlig i webbläsaren).
+
+**Lösning:**
+
+1. Skapade Supabase Edge Function
+2. Lagrade API-nyckel som `supabase secrets set OPENAI_API_KEY=...`
+3. Frontend anropar Edge Function istället för OpenAI direkt
+4. Tog bort `REACT_APP_OPENAI_API_KEY` från `.env`
+
+### Kommandon som kördes
+
+```bash
+# Installera Supabase CLI
+brew install supabase/tap/supabase
+
+# Logga in och länka projekt
+supabase login
+supabase link --project-ref aclcpanlrhnyszivvmdy
+
+# Sätt API-nyckel som säker hemlighet
+supabase secrets set OPENAI_API_KEY=sk-proj-...
+
+# Deploya Edge Function
+supabase functions deploy ai-assistant --no-verify-jwt
+
+# Pusha till GitHub (Netlify auto-deploy)
+git add . && git commit -m "feat(ai): Add AI Assistant..." && git push
+```
+
+### Filer skapade/ändrade
+
+**Nya filer:**
+
+- `frontend/src/components/AiAssistant.jsx` - Chattkomponent
+- `supabase/functions/ai-assistant/index.ts` - Edge Function
+
+**Ändrade filer:**
+
+- `frontend/src/App.jsx` - Importerar och renderar AiAssistant
+- `frontend/.env` - Tog bort OPENAI_API_KEY (nu i Supabase secrets)
+
+### Status (2026-01-26 19:00)
+
+- 🟢 **AI-assistent live** på marinmekaniker.netlify.app
+- 🟢 **OpenAI API-nyckel säkrad** via Supabase secrets
+- 🟢 **Tillgång till ALL CRM-data** (kunder, leads, jobb, meddelanden)
+- 🟢 **Deploy lyckad** - Netlify auto-deploy från GitHub
+
+### Framtida förbättringar
+
+- ⚡ Action-kommandon (skapa jobb, markera leads)
+- 📍 Sidkontext (AI vet vilken sida du är på)
+- 💾 Spara chatthistorik
+- 📱 WhatsApp-integration
+
+---
+
 ## 2026-01-21 - UX-Förbättringar: Fullständig Implementation
 
 ### 📋 Projektöversikt
