@@ -83,3 +83,6 @@ android-sdk/ .env
 .env
 frontend/.env
 backend/.env
+
+# Local Netlify folder
+.netlify

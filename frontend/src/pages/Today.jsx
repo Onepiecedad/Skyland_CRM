@@ -6,6 +6,7 @@ import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
 import { SwipeableCard } from '../components/SwipeableCard';
+import { MessageModal } from '../components/MessageModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
@@ -39,6 +40,8 @@ export const Today = () => {
     const [error, setError] = useState(null);
     const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
     const [isMessagesExpanded, setIsMessagesExpanded] = useState(false);
+    const [selectedMessage, setSelectedMessage] = useState(null);
+    const [inboxMessages, setInboxMessages] = useState([]); // For leads with message_id
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -70,7 +73,7 @@ export const Today = () => {
             if (jobsError) throw jobsError;
             setJobs(jobsData || []);
 
-            // 3. Fetch 5 latest messages (without join to avoid 300 status)
+            // 3. Fetch 5 latest messages (including body_full for modal)
             const { data: messagesData, error: messagesError } = await supabase
                 .from('messages')
                 .select(`
@@ -78,14 +81,28 @@ export const Today = () => {
                     subject,
                     from_email,
                     from_name,
+                    to_email,
                     direction,
                     received_at,
                     body_preview,
+                    body_full,
                     customer_id,
                     seen
                 `)
                 .order('received_at', { ascending: false })
                 .limit(5);
+
+            // 3b. Fetch messages for leads (to show in modal when clicking "Att svara på")
+            const leadMessageIds = (leadsData || []).map(l => l.message_id).filter(Boolean);
+            let inboxMessagesData = [];
+            if (leadMessageIds.length > 0) {
+                const { data: inboxMsgs } = await supabase
+                    .from('messages')
+                    .select('id, subject, from_email, from_name, to_email, direction, received_at, body_preview, body_full, customer_id, seen')
+                    .in('id', leadMessageIds);
+                inboxMessagesData = inboxMsgs || [];
+            }
+            setInboxMessages(inboxMessagesData);
 
             if (messagesError) throw messagesError;
 
@@ -290,18 +307,38 @@ export const Today = () => {
                                             rightLabel="Öppna"
                                             className="border-b last:border-0"
                                         >
-                                            {lead.customer_id ? (
-                                                <Link
-                                                    to={`/kund/${lead.customer_id}`}
-                                                    className="group flex items-start pb-2 sm:pb-3 pt-1 sm:pt-2 hover:bg-muted/50 transition-colors px-3 sm:px-4"
-                                                >
-                                                    <InnerContent />
-                                                </Link>
-                                            ) : (
-                                                <div className="flex items-start pb-2 sm:pb-3 pt-1 sm:pt-2 px-3 sm:px-4">
-                                                    <InnerContent />
-                                                </div>
-                                            )}
+                                            <div
+                                                className="group flex items-start pb-2 sm:pb-3 pt-1 sm:pt-2 hover:bg-muted/50 transition-colors px-3 sm:px-4 cursor-pointer"
+                                                onClick={() => {
+                                                    // Find the corresponding inbox message for this lead
+                                                    const inboxMsg = inboxMessages.find(m => m.id === lead.message_id);
+                                                    if (inboxMsg) {
+                                                        // Format message for modal (add customer info if available)
+                                                        const msgWithCustomer = {
+                                                            ...inboxMsg,
+                                                            customers: lead.customer_id ? { id: lead.customer_id, name: lead.name } : null
+                                                        };
+                                                        setSelectedMessage(msgWithCustomer);
+                                                    } else {
+                                                        // Create pseudo-message from lead data
+                                                        const pseudoMessage = {
+                                                            id: `lead-${lead.id}`,
+                                                            subject: lead.ai_category || 'Ny förfrågan',
+                                                            from_name: lead.name || 'Okänd',
+                                                            from_email: lead.email || '',
+                                                            body_full: lead.ai_summary || '',
+                                                            body_preview: lead.ai_summary || '',
+                                                            received_at: lead.created_at,
+                                                            direction: 'inbound',
+                                                            seen: false,
+                                                            customers: lead.customer_id ? { id: lead.customer_id, name: lead.name } : null
+                                                        };
+                                                        setSelectedMessage(pseudoMessage);
+                                                    }
+                                                }}
+                                            >
+                                                <InnerContent />
+                                            </div>
                                         </SwipeableCard>
                                     );
                                 })
@@ -460,10 +497,10 @@ export const Today = () => {
 
                                 const hasCustomer = !!message.customer_id;
 
-                                return hasCustomer ? (
-                                    <Link
+                                return (
+                                    <div
                                         key={message.id}
-                                        to={`/kund/${message.customer_id}`}
+                                        onClick={() => setSelectedMessage(message)}
                                         className={`group flex items-start gap-2 sm:gap-3 border-b last:border-0 pb-2 sm:pb-3 last:pb-0 hover:bg-accent -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 transition-colors cursor-pointer rounded-md ${message.direction === 'inbound' && !message.seen ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}
                                     >
                                         <div className="relative shrink-0">
@@ -498,33 +535,6 @@ export const Today = () => {
                                         <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
                                             {formattedDate}
                                         </span>
-                                    </Link>
-                                ) : (
-                                    <div
-                                        key={message.id}
-                                        className="flex items-start gap-2 sm:gap-3 border-b last:border-0 pb-2 sm:pb-3 last:pb-0 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 opacity-60"
-                                        title="Ingen kundkoppling"
-                                    >
-                                        <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-medium text-sm sm:text-base truncate">
-                                                    {message.subject || 'Inget ämne'}
-                                                </span>
-                                                {message.direction === 'outbound' && (
-                                                    <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">
-                                                        Skickat
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
-                                                <span className="truncate">{message.from_name || message.from_email || 'Okänd'}</span>
-                                                <span className="text-xs italic">(ingen kund)</span>
-                                            </div>
-                                        </div>
-                                        <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
-                                            {formattedDate}
-                                        </span>
                                     </div>
                                 );
                             })
@@ -532,6 +542,15 @@ export const Today = () => {
                     </CardContent>
                 </Card>
             </main>
+
+            {/* Message Modal */}
+            <MessageModal
+                isOpen={!!selectedMessage}
+                message={selectedMessage}
+                onClose={() => setSelectedMessage(null)}
+                onReply={() => { }}
+                onDelete={() => { }}
+            />
         </div>
     );
 };
