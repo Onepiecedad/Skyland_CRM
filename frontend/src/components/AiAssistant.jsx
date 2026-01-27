@@ -14,6 +14,62 @@ import {
     Minimize2
 } from 'lucide-react';
 
+// Helper function to clean email content for AI context
+const cleanEmailForAI = (text) => {
+    if (!text) return '';
+
+    // Decode HTML entities
+    let cleaned = text
+        .replace(/&auml;/g, 'ä').replace(/&Auml;/g, 'Ä')
+        .replace(/&ouml;/g, 'ö').replace(/&Ouml;/g, 'Ö')
+        .replace(/&aring;/g, 'å').replace(/&Aring;/g, 'Å')
+        .replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+    // Strip HTML tags
+    cleaned = cleaned.replace(/<[^>]+>/g, ' ');
+
+    // Fix Swedish encoding issues
+    cleaned = cleaned
+        .replace(/Ã¥/g, 'å').replace(/Ã…/g, 'Å')
+        .replace(/Ã¤/g, 'ä').replace(/Ã„/g, 'Ä')
+        .replace(/Ã¶/g, 'ö').replace(/Ã–/g, 'Ö')
+        .replace(/Ã©/g, 'é').replace(/Ã¨/g, 'è');
+
+    // Remove quoted reply sections (common patterns)
+    const cutoffPatterns = [
+        /^Den \d{1,2} [a-zäöå]+ \d{4} .*skrev.*:/im,
+        /^On .* wrote:/im,
+        /^-{3,}\s*(Original|Ursprungligt)/im,
+        /^From:.*?Sent:.*?To:/ims,
+        /^_{3,}/m
+    ];
+
+    for (const pattern of cutoffPatterns) {
+        const match = cleaned.match(pattern);
+        if (match && match.index > 50) {
+            cleaned = cleaned.substring(0, match.index).trim();
+            break;
+        }
+    }
+
+    // Remove lines starting with ">" (quoted text)
+    cleaned = cleaned.split('\n')
+        .filter(line => !line.trim().startsWith('>'))
+        .join('\n');
+
+    // Clean up whitespace
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+    // Limit length for AI context (keep most important content)
+    if (cleaned.length > 500) {
+        cleaned = cleaned.substring(0, 500) + '...';
+    }
+
+    return cleaned || '(Tomt meddelande)';
+};
+
 // System prompt för AI:n med CRM-kontext
 const getSystemPrompt = (context) => `Du är en hjälpsam AI-assistent för Skyland CRM - ett kundhanteringssystem för marinmekaniker Thomas Guldager.
 
@@ -51,7 +107,10 @@ ${context?.activeJobs?.length > 0
 
 SENASTE MEDDELANDEN (mail-korrespondens):
 ${context?.recentMessages?.length > 0
-        ? context.recentMessages.map(m => `• ${m.direction === 'inbound' ? '📥' : '📤'} Från: ${m.from_name || m.from_email || 'Okänd'} | Ämne: "${m.subject || 'Inget ämne'}" | Förhandsvisning: "${(m.body_preview || '').substring(0, 100)}..." | Datum: ${m.received_at ? new Date(m.received_at).toLocaleDateString('sv-SE') : 'Okänt'}`).join('\n')
+        ? context.recentMessages.map(m => {
+            const content = cleanEmailForAI(m.body_full || m.body_preview || '');
+            return `• ${m.direction === 'inbound' ? '📥 INKOMMANDE' : '📤 SKICKAT'} | Från: ${m.from_name || m.from_email || 'Okänd'} | Till: ${m.to_email || 'Okänd'} | Ämne: "${m.subject || 'Inget ämne'}" | Datum: ${m.received_at ? new Date(m.received_at).toLocaleDateString('sv-SE') : 'Okänt'}\n  Innehåll: ${content}`;
+        }).join('\n\n')
         : '(Inga meddelanden)'}
 
 Nuvarande datum: ${new Date().toLocaleDateString('sv-SE')}`;
@@ -122,10 +181,10 @@ export function AiAssistant() {
                 .order('created_at', { ascending: false })
                 .limit(30);
 
-            // Hämta senaste meddelanden
+            // Hämta senaste meddelanden (inkl. body_full för fullständig AI-kontext)
             const { data: messagesData } = await supabase
                 .from('messages')
-                .select('id, subject, from_email, from_name, to_email, direction, received_at, body_preview, customer_id')
+                .select('id, subject, from_email, from_name, to_email, direction, received_at, body_preview, body_full, customer_id')
                 .order('received_at', { ascending: false })
                 .limit(30);
 
