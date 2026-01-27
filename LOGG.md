@@ -1,5 +1,72 @@
 # Utvecklingslogg
 
+## 2026-01-27 - Resend Email Integration (SMTP Timeout Fix)
+
+### 📋 Projektöversikt
+
+**Problem:** SMTP-timeout vid utgående email via One.com från n8n Cloud.
+
+**Lösning:** Ersatte SMTP med Resend API via Supabase Edge Function.
+
+**Status:** ✅ IMPLEMENTERAT & DEPLOYAT
+
+### Teknisk implementation
+
+#### 1. Supabase Edge Function: send-email
+
+```
+supabase/functions/send-email/index.ts
+```
+
+- Tar emot email-data (to, subject, body, from, messageId)
+- Skickar via Resend API
+- Uppdaterar meddelandestatus i databasen (sent/failed)
+- API-nyckel säkert lagrad som `supabase secrets`
+
+#### 2. Frontend: ReplyModal uppdaterad
+
+- Sparar meddelande i DB med status `sending`
+- Anropar Edge Function direkt för omedelbar leverans
+- Uppdaterar status baserat på resultat
+
+### Varför Resend istället för SMTP?
+
+| SMTP (One.com) | Resend API |
+|----------------|------------|
+| ❌ Timeout från n8n Cloud | ✅ Fungerar från alla miljöer |
+| ❌ Port 587/465 blockeras | ✅ Standard HTTPS |
+| ❌ Kräver n8n-polling | ✅ Skickar direkt |
+| - | ✅ 3000 email/månad gratis |
+
+### Kommandon som kördes
+
+```bash
+# Deploya Edge Function
+supabase functions deploy send-email --no-verify-jwt
+
+# Sätt Resend API-nyckel
+supabase secrets set RESEND_API_KEY=re_...
+
+# Pusha till GitHub
+git push
+```
+
+### Status (2026-01-27 16:19)
+
+- 🟢 **Edge Function deployad** - `send-email` aktiv i Supabase
+- 🟢 **Resend API-nyckel satt** - Som Supabase secret
+- 🟢 **Domän verifierad** - `marinmekaniker.nu` i Resend
+- 🟢 **Frontend uppdaterad** - ReplyModal anropar Edge Function
+- 🟢 **Git push klar** - Netlify auto-deploy
+
+### Framtida förbättringar
+
+- 📎 Stöd för bilagor
+- 📧 HTML-email med formatering
+- 📊 Email-analytics via Resend dashboard
+
+---
+
 ## 2026-01-26 - AI-Assistent med GPT-4o Integration
 
 ### 📋 Projektöversikt
