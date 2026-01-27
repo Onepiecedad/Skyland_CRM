@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase';
 import { messagesAPI } from '../lib/api';
 import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
-import { SwipeableCard } from '../components/SwipeableCard';
 import { MessageModal } from '../components/MessageModal';
 import { ReplyModal } from '../components/ReplyModal';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,7 +22,6 @@ import {
     Inbox,
     Send,
     User,
-    Reply,
     Trash2
 } from 'lucide-react';
 
@@ -140,7 +138,7 @@ const extractSenderName = (message) => {
 // KOMPONENT: MessageRow - En rad i listan
 // ============================================
 
-const MessageRow = ({ message, onClick, isUnread }) => {
+const MessageRow = ({ message, onClick, onDelete, isUnread, isDeleting }) => {
     const senderName = extractSenderName(message);
     const subject = fixSwedishEncoding(decodeQuotedPrintable(message.subject || 'Inget ämne'));
     const preview = cleanPreview(message.body_preview || message.body_full || '');
@@ -164,13 +162,20 @@ const MessageRow = ({ message, onClick, isUnread }) => {
         } catch (e) { }
     }
 
+    const handleDelete = (e) => {
+        e.stopPropagation();
+        if (onDelete) {
+            onDelete(message.id);
+        }
+    };
+
     return (
-        <button
-            onClick={onClick}
-            className={`w-full text-left p-4 rounded-lg border transition-all duration-150 hover:bg-muted/50 hover:border-primary/20 group ${isUnread
+        <div
+            className={`relative w-full text-left p-4 rounded-lg border transition-all duration-150 hover:bg-muted/50 hover:border-primary/20 group cursor-pointer ${isUnread
                 ? 'bg-primary/5 border-primary/20'
                 : 'bg-card border-border'
                 }`}
+            onClick={onClick}
         >
             <div className="flex items-start gap-3">
                 {/* Avatar / Ikon */}
@@ -219,8 +224,22 @@ const MessageRow = ({ message, onClick, isUnread }) => {
                         {preview || '(Inget innehåll)'}
                     </p>
                 </div>
+
+                {/* Delete button - visible on hover (desktop) or always on mobile */}
+                <button
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="shrink-0 p-2 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors md:opacity-0 md:group-hover:opacity-100 active:scale-95"
+                    aria-label="Radera meddelande"
+                >
+                    {isDeleting ? (
+                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                        <Trash2 className="w-5 h-5" />
+                    )}
+                </button>
             </div>
-        </button>
+        </div>
     );
 };
 
@@ -236,6 +255,7 @@ export const Messages = () => {
     const [sortDirection, setSortDirection] = useState('desc');
     const [searchQuery, setSearchQuery] = useState('');
     const [directionFilter, setDirectionFilter] = useState('all');
+    const [deletingId, setDeletingId] = useState(null);
 
     // Modal states
     const [selectedMessage, setSelectedMessage] = useState(null);
@@ -543,30 +563,19 @@ export const Messages = () => {
                     ) : (
                         <div className="space-y-2">
                             {filteredMessages.map((message) => (
-                                <SwipeableCard
+                                <MessageRow
                                     key={message.id}
-                                    onSwipeRight={() => {
-                                        // Delete on swipe right (Apple Mail style - no confirmation)
-                                        handleDelete(message.id, true);
+                                    message={message}
+                                    onClick={() => handleMessageClick(message)}
+                                    onDelete={async (id) => {
+                                        if (!window.confirm('Radera detta meddelande?')) return;
+                                        setDeletingId(id);
+                                        await handleDelete(id, true);
+                                        setDeletingId(null);
                                     }}
-                                    onSwipeLeft={() => {
-                                        // Reply on swipe left
-                                        handleReply(message);
-                                    }}
-                                    rightLabel="Radera"
-                                    leftLabel="Svara"
-                                    rightColor="bg-red-500 hover:bg-red-600"
-                                    leftColor="bg-green-500 hover:bg-green-600"
-                                    RightIcon={Trash2}
-                                    LeftIcon={Reply}
-                                    className="md:pointer-events-none"
-                                >
-                                    <MessageRow
-                                        message={message}
-                                        onClick={() => handleMessageClick(message)}
-                                        isUnread={message.direction === 'inbound' && !message.seen}
-                                    />
-                                </SwipeableCard>
+                                    isUnread={message.direction === 'inbound' && !message.seen}
+                                    isDeleting={deletingId === message.id}
+                                />
                             ))}
                         </div>
                     )}

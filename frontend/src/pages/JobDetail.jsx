@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { jobsAPI, jobItemsAPI } from '../lib/api';
+import { jobsAPI, jobItemsAPI, jobImagesAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
+import JobImageGallery from '../components/JobImageGallery';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -96,6 +97,9 @@ export const JobDetail = () => {
         unit_price: 0
     });
 
+    // Job images state
+    const [images, setImages] = useState([]);
+
     const fetchData = async () => {
         setLoading(true);
         setError(null);
@@ -105,11 +109,27 @@ export const JobDetail = () => {
             setJob(jobData);
             setEditForm(jobData);
             setItems(jobData.items || []);
+
+            // Fetch job images
+            const imagesResponse = await jobImagesAPI.getByJobId(id);
+            setImages(imagesResponse.data || []);
         } catch (err) {
             console.error('Error fetching job details:', err);
             setError('Kunde inte ladda jobbdata. Försök igen.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDeleteImage = async (imageId) => {
+        try {
+            await jobImagesAPI.delete(imageId);
+            setImages(images.filter(img => img.id !== imageId));
+            toast.success('Bilden har tagits bort');
+        } catch (err) {
+            console.error('Error deleting image:', err);
+            toast.error('Kunde inte ta bort bilden');
+            throw err;
         }
     };
 
@@ -722,6 +742,14 @@ export const JobDetail = () => {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* Job Images */}
+                    <JobImageGallery
+                        jobId={id}
+                        images={images}
+                        onImagesChange={setImages}
+                        onDeleteImage={handleDeleteImage}
+                    />
                 </div>
 
                 {/* Right column - Customer & Boat info */}

@@ -1,5 +1,106 @@
 # Utvecklingslogg
 
+## 2026-01-27 - AI-Assistent: Lead-konvertering & Svarsförslag
+
+### 📋 Projektöversikt
+
+**Mål:** Utöka AI-assistenten med fler verktyg och ändra inkommande mail-flödet.
+
+**Status:** ✅ IMPLEMENTERAT & DEPLOYAT
+
+### Nya AI-verktyg
+
+| Verktyg | Beskrivning |
+|---------|-------------|
+| `convert_lead_to_customer` | Konverterar en lead till permanent kund |
+| `suggest_reply` | Genererar svarsförslag i Thomas stil |
+
+### Teknisk implementation
+
+#### 1. Edge Function utökad (`ai-assistant/index.ts`)
+
+- **Nytt verktyg:** `convert_lead_to_customer`
+  - Skapar ny kund från lead-data
+  - Uppdaterar lead-status till "converted"
+  - Kopplar om meddelanden till den nya kunden
+
+- **Nytt verktyg:** `suggest_reply`
+  - Analyserar Thomas tidigare utgående mail för ton och stil
+  - Genererar svar som matchar hans skrivsätt
+
+#### 2. Frontend uppdaterad (`AiAssistant.jsx`)
+
+- Lead-ID visas nu i kontexten för AI:n
+- Lead-status inkluderas (new, contacted, converted)
+- Thomas utgående mail hämtas för stilmatchning
+- Nytt välkomstmeddelande med alla funktioner
+
+#### 3. SQL-migrering: Leads istället för kunder
+
+**Före:** Inkommande mail skapade automatiskt kunder  
+**Efter:** Inkommande mail skapar bara **leads**
+
+```sql
+-- Ny trigger-funktion
+CREATE OR REPLACE FUNCTION auto_create_lead_from_message()
+-- Ny trigger
+CREATE TRIGGER trigger_auto_create_lead ON messages
+```
+
+**Flöde för nya avsändare:**
+
+1. Mail kommer in → Lead skapas automatiskt
+2. Användaren/AI bestämmer om leaden ska bli kund
+3. `convert_lead_to_customer` → Kund skapas manuellt
+
+### Kommandon som kördes
+
+```bash
+# Deploya uppdaterad Edge Function
+supabase functions deploy ai-assistant --no-verify-jwt
+
+# Bygga och deploya frontend
+cd frontend && npm run build
+npx netlify deploy --prod --dir=build
+
+# SQL-migrering kördes via Supabase SQL Editor
+
+# Git commit och push
+git add . && git commit -m "feat(ai): Add lead conversion & reply suggestions" && git push
+```
+
+### Filer skapade/ändrade
+
+**Ändrade:**
+
+- `supabase/functions/ai-assistant/index.ts` - Nya verktyg
+- `frontend/src/components/AiAssistant.jsx` - Utökad kontext och prompt
+
+**Nya:**
+
+- `supabase/migrations/20260127_leads_only_from_emails.sql` - SQL-migrering
+
+### Status (2026-01-27 20:45)
+
+- 🟢 **convert_lead_to_customer** - Fungerar
+- 🟢 **suggest_reply** - Fungerar med stilmatchning
+- 🟢 **SQL-trigger uppdaterad** - Leads skapas istället för kunder
+- 🟢 **Frontend deployad** - Netlify
+- 🟢 **Edge Function deployad** - Supabase
+- 🟢 **Git pushat** - Commit 58a6192
+
+### Användningsexempel
+
+```
+"Gör lead Johan Andersson till kund"
+→ AI anropar convert_lead_to_customer med lead-ID
+
+"Föreslå ett svar på mailet från Erik"
+→ AI analyserar Thomas stil och genererar svar
+```
+
+---
+
 ## 2026-01-27 - Resend Email Integration (SMTP Timeout Fix)
 
 ### 📋 Projektöversikt

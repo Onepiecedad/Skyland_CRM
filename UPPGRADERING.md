@@ -6,6 +6,70 @@
 
 ---
 
+## 📸 Jobbfoton – Kamerafunktion (PÅGÅENDE)
+
+**Start:** 2026-01-27 21:16  
+**Mål:** Möjliggöra fotografering med mobilen direkt i appen för att dokumentera jobb
+
+### Fasöversikt
+
+| Fas | Beskrivning | Status | Tid |
+|-----|-------------|--------|-----|
+| 1 | Databasstruktur + Storage bucket | ✅ Klar | 15 min |
+| 2 | Grundläggande uppladdning (kamera + galleri) | ✅ Klar | 45 min |
+| 3 | Bildgalleri med thumbnails på JobDetail | ✅ Klar | 30 min |
+| 4 | Fullskärmsvisning med zoom | ⬜ | 30 min |
+| 5 | Kategorisering + bildtexter | ⬜ | 20 min |
+| 6 | Long-press meny (radera/redigera) | ⬜ | 20 min |
+| 7 | Drag-to-reorder | ⬜ | 30 min |
+
+### Fas 1: Databasstruktur + Storage
+
+**Tabell `job_images`:**
+
+```sql
+CREATE TABLE job_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  url TEXT NOT NULL,
+  category TEXT DEFAULT 'documentation',
+  caption TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  sort_order INT DEFAULT 0
+);
+```
+
+**Storage bucket:** `job-images` (public)
+
+### Fas 2: Uppladdningskomponent
+
+- `JobImageUpload.jsx` – Kamera + gallerival
+- Native HTML5 `capture="environment"` för bakåtkamera
+- Bildkomprimering (max 1920px, 85% kvalitet)
+- Progress-indikator
+
+### Fas 3: Bildgalleri
+
+- `JobImageGallery.jsx` – Rutnät med thumbnails
+- 4 per rad desktop, 3 på mobil
+- "+" knapp för nya bilder
+- Kategori-badge på varje bild
+
+### Checkpoints
+
+- [x] Fas 1 klar: Databas + Storage fungerar ✅
+- [x] Fas 2 klar: Kan ta foto och ladda upp ✅
+- [x] Fas 3 klar: Bilder visas i galleri på jobbsidan ✅
+
+### Logg
+
+- **2026-01-27 21:16** – Projekt startat, påbörjar fas 1-3
+- **2026-01-27 21:55** – Fas 1-3 färdigställda och verifierade
+- **2026-01-27 22:15** – UI-fixar: Synlig radera-knapp på meddelandekort, förbättrad mobilanpassning (iOS Safari viewport), redundant "Lägg till första bilden"-länk borttagen
+
+---
+
 ## 📊 Nuläge
 
 ### Vad som fungerar ✅
