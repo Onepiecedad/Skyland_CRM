@@ -555,8 +555,8 @@ export const Messages = () => {
                                     }}
                                     rightLabel="Radera"
                                     leftLabel="Svara"
-                                    rightColor="bg-red-500"
-                                    leftColor="bg-blue-500"
+                                    rightColor="bg-red-500 hover:bg-red-600"
+                                    leftColor="bg-green-500 hover:bg-green-600"
                                     RightIcon={Trash2}
                                     LeftIcon={Reply}
                                     className="md:pointer-events-none"

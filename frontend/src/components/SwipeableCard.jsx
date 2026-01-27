@@ -3,43 +3,48 @@ import { Trash2, ChevronRight } from 'lucide-react';
 
 /**
  * SwipeableCard - A card component with swipe actions for mobile
+ * 
+ * Features a "locking" swipe mechanism: swiping reveals a confirmation button
+ * that the user must tap to confirm the action.
+ * 
  * @param {ReactNode} children - The card content
- * @param {function} onSwipeLeft - Action when swiped left (e.g., reply)
- * @param {function} onSwipeRight - Action when swiped right (e.g., delete)
+ * @param {function} onSwipeLeft - Action when left action is confirmed
+ * @param {function} onSwipeRight - Action when right action is confirmed
  * @param {string} leftLabel - Label for left swipe action
  * @param {string} rightLabel - Label for right swipe action
- * @param {string} leftColor - Background color for left action (default: red)
- * @param {string} rightColor - Background color for right action (default: green)
- * @param {Component} LeftIcon - Custom icon for left action (default: Trash2)
- * @param {Component} RightIcon - Custom icon for right action (default: ChevronRight)
+ * @param {string} leftColor - Background color for left action (default: blue)
+ * @param {string} rightColor - Background color for right action (default: red)
+ * @param {Component} LeftIcon - Custom icon for left action (default: ChevronRight)
+ * @param {Component} RightIcon - Custom icon for right action (default: Trash2)
  * @param {boolean} disabled - Disable swipe actions
  */
 export function SwipeableCard({
     children,
     onSwipeLeft,
     onSwipeRight,
-    leftLabel = 'Ta bort',
-    rightLabel = 'Öppna',
-    leftColor = 'bg-red-500',
-    rightColor = 'bg-green-500',
-    LeftIcon = Trash2,
-    RightIcon = ChevronRight,
+    leftLabel = 'Svara',
+    rightLabel = 'Radera',
+    leftColor = 'bg-blue-500 hover:bg-blue-600',
+    rightColor = 'bg-red-500 hover:bg-red-600',
+    LeftIcon = ChevronRight,
+    RightIcon = Trash2,
     disabled = false,
     className = '',
 }) {
     const [translateX, setTranslateX] = useState(0);
     const [isSwiping, setIsSwiping] = useState(false);
+    const [lockedDirection, setLockedDirection] = useState(null); // 'left' | 'right' | null
     const startX = useRef(0);
     const startY = useRef(0);
     const currentX = useRef(0);
     const isScrolling = useRef(null);
     const containerRef = useRef(null);
 
-    const threshold = 100; // Minimum swipe distance to trigger action
-    const maxSwipe = 120; // Maximum visual swipe distance
+    const threshold = 80; // Minimum swipe distance to lock
+    const lockedOffset = 100; // How much to offset when locked
 
     const handleTouchStart = (e) => {
-        if (disabled) return;
+        if (disabled || lockedDirection) return; // Don't start new swipe if locked
         startX.current = e.touches[0].clientX;
         startY.current = e.touches[0].clientY;
         currentX.current = startX.current;
@@ -48,7 +53,7 @@ export function SwipeableCard({
     };
 
     const handleTouchMove = (e) => {
-        if (disabled || !isSwiping) return;
+        if (disabled || !isSwiping || lockedDirection) return;
 
         const touchX = e.touches[0].clientX;
         const touchY = e.touches[0].clientY;
@@ -72,8 +77,8 @@ export function SwipeableCard({
 
         // Apply resistance at the edges
         let newTranslateX = diffX;
-        if (Math.abs(diffX) > maxSwipe) {
-            newTranslateX = diffX > 0 ? maxSwipe : -maxSwipe;
+        if (Math.abs(diffX) > lockedOffset) {
+            newTranslateX = diffX > 0 ? lockedOffset : -lockedOffset;
         }
 
         // Only allow swipe in directions that have handlers
@@ -85,27 +90,55 @@ export function SwipeableCard({
     };
 
     const handleTouchEnd = () => {
-        if (disabled) return;
+        if (disabled || lockedDirection) return;
         setIsSwiping(false);
 
         const diffX = currentX.current - startX.current;
 
-        // Check if swipe threshold was met
+        // Check if swipe threshold was met - lock the card
         if (diffX > threshold && onSwipeRight) {
-            onSwipeRight();
+            setLockedDirection('right');
+            setTranslateX(lockedOffset);
         } else if (diffX < -threshold && onSwipeLeft) {
-            onSwipeLeft();
+            setLockedDirection('left');
+            setTranslateX(-lockedOffset);
+        } else {
+            // Not enough swipe, animate back
+            setTranslateX(0);
         }
 
-        // Animate back to center
-        setTranslateX(0);
         isScrolling.current = null;
     };
 
     const handleTouchCancel = () => {
+        if (lockedDirection) return;
         setIsSwiping(false);
         setTranslateX(0);
         isScrolling.current = null;
+    };
+
+    const handleConfirm = () => {
+        if (lockedDirection === 'right' && onSwipeRight) {
+            onSwipeRight();
+        } else if (lockedDirection === 'left' && onSwipeLeft) {
+            onSwipeLeft();
+        }
+        // Reset
+        setLockedDirection(null);
+        setTranslateX(0);
+    };
+
+    const handleCancel = () => {
+        setLockedDirection(null);
+        setTranslateX(0);
+    };
+
+    // Handle tap outside to cancel
+    const handleCardClick = (e) => {
+        if (lockedDirection) {
+            e.stopPropagation();
+            handleCancel();
+        }
     };
 
     return (
@@ -117,18 +150,24 @@ export function SwipeableCard({
             <div className="absolute inset-0 flex">
                 {/* Right action (swipe right reveals this on left) */}
                 {onSwipeRight && (
-                    <div className={`flex items-center justify-start px-4 w-1/2 ${rightColor} text-white`}>
+                    <button
+                        onClick={lockedDirection === 'right' ? handleConfirm : undefined}
+                        className={`flex items-center justify-center px-4 w-1/2 ${rightColor} text-white transition-colors ${lockedDirection === 'right' ? 'cursor-pointer' : ''}`}
+                    >
                         <RightIcon className="h-5 w-5 mr-2" />
                         <span className="text-sm font-medium">{rightLabel}</span>
-                    </div>
+                    </button>
                 )}
 
                 {/* Left action (swipe left reveals this on right) */}
                 {onSwipeLeft && (
-                    <div className={`flex items-center justify-end px-4 w-1/2 ml-auto ${leftColor} text-white`}>
-                        <span className="text-sm font-medium mr-2">{leftLabel}</span>
-                        <LeftIcon className="h-5 w-5" />
-                    </div>
+                    <button
+                        onClick={lockedDirection === 'left' ? handleConfirm : undefined}
+                        className={`flex items-center justify-center px-4 w-1/2 ml-auto ${leftColor} text-white transition-colors ${lockedDirection === 'left' ? 'cursor-pointer' : ''}`}
+                    >
+                        <LeftIcon className="h-5 w-5 mr-2" />
+                        <span className="text-sm font-medium">{leftLabel}</span>
+                    </button>
                 )}
             </div>
 
@@ -140,6 +179,7 @@ export function SwipeableCard({
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchCancel}
+                onClick={handleCardClick}
             >
                 {children}
             </div>
