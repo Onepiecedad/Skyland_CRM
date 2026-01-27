@@ -42,9 +42,8 @@ export const ReplyModal = ({ isOpen, onClose, originalMessage, customer, onReply
         setError(null);
 
         try {
-            // Insert the outbound message into messages table with 'queued' status
-            // n8n workflow will pick up queued messages and send them via SMTP
-            const { error: insertError } = await supabase
+            // 1. Insert the outbound message into messages table with 'sending' status
+            const { data: insertedMessage, error: insertError } = await supabase
                 .from('messages')
                 .insert({
                     customer_id: customer?.id || null,
@@ -58,13 +57,49 @@ export const ReplyModal = ({ isOpen, onClose, originalMessage, customer, onReply
                     from_email: 'info@marinmekaniker.nu',
                     from_name: 'Marinmekaniker Thomas Guldager',
                     to_email: recipientEmail,
-                    status: 'queued', // n8n picks up queued messages
+                    status: 'sending', // Will be updated by Edge Function
                     reply_to_id: originalMessage.id,
                     thread_id: originalMessage.thread_id || originalMessage.id,
                     created_at: new Date().toISOString()
-                });
+                })
+                .select()
+                .single();
 
             if (insertError) throw insertError;
+
+            // 2. Call Supabase Edge Function to send email via Resend
+            const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+            const sendEmailUrl = `${supabaseUrl}/functions/v1/send-email`;
+
+            const sendResponse = await fetch(sendEmailUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    to: recipientEmail,
+                    subject: subject,
+                    body: body,
+                    from: 'Thomas Guldager <info@marinmekaniker.nu>',
+                    replyTo: 'info@marinmekaniker.nu',
+                    messageId: insertedMessage.id
+                }),
+            });
+
+            const sendResult = await sendResponse.json();
+
+            if (!sendResponse.ok || !sendResult.success) {
+                // Email failed - update status to failed
+                await supabase
+                    .from('messages')
+                    .update({
+                        status: 'failed',
+                        error_message: sendResult.error || 'Email kunde inte skickas'
+                    })
+                    .eq('id', insertedMessage.id);
+
+                throw new Error(sendResult.error || 'Email kunde inte skickas');
+            }
 
             // Success - close modal and notify parent
             onReplySent?.();
@@ -72,8 +107,8 @@ export const ReplyModal = ({ isOpen, onClose, originalMessage, customer, onReply
             setBody('');
 
         } catch (err) {
-            console.error('Error saving reply:', err);
-            setError(err.message || 'Kunde inte spara meddelandet');
+            console.error('Error sending email:', err);
+            setError(err.message || 'Kunde inte skicka meddelandet');
         } finally {
             setSending(false);
         }
