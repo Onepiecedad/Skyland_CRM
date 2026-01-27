@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { messagesAPI } from '../lib/api';
 import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
+import { SwipeableCard } from '../components/SwipeableCard';
 import { MessageModal } from '../components/MessageModal';
 import { ReplyModal } from '../components/ReplyModal';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,7 +22,9 @@ import {
     CheckCheck,
     Inbox,
     Send,
-    User
+    User,
+    Reply,
+    Trash2
 } from 'lucide-react';
 
 // ============================================
@@ -379,8 +382,9 @@ export const Messages = () => {
         setShowReplyModal(true);
     };
 
-    const handleDelete = async (messageId) => {
-        if (!window.confirm('Är du säker på att du vill radera detta meddelande?')) {
+    const handleDelete = async (messageId, skipConfirm = false) => {
+        // When deleting via swipe, skip confirmation for Apple Mail-like feel
+        if (!skipConfirm && !window.confirm('Är du säker på att du vill radera detta meddelande?')) {
             return;
         }
 
@@ -539,12 +543,30 @@ export const Messages = () => {
                     ) : (
                         <div className="space-y-2">
                             {filteredMessages.map((message) => (
-                                <MessageRow
+                                <SwipeableCard
                                     key={message.id}
-                                    message={message}
-                                    onClick={() => handleMessageClick(message)}
-                                    isUnread={message.direction === 'inbound' && !message.seen}
-                                />
+                                    onSwipeRight={() => {
+                                        // Delete on swipe right (Apple Mail style - no confirmation)
+                                        handleDelete(message.id, true);
+                                    }}
+                                    onSwipeLeft={() => {
+                                        // Reply on swipe left
+                                        handleReply(message);
+                                    }}
+                                    rightLabel="Radera"
+                                    leftLabel="Svara"
+                                    rightColor="bg-red-500"
+                                    leftColor="bg-blue-500"
+                                    RightIcon={Trash2}
+                                    LeftIcon={Reply}
+                                    className="md:pointer-events-none"
+                                >
+                                    <MessageRow
+                                        message={message}
+                                        onClick={() => handleMessageClick(message)}
+                                        isUnread={message.direction === 'inbound' && !message.seen}
+                                    />
+                                </SwipeableCard>
                             ))}
                         </div>
                     )}

@@ -4,12 +4,14 @@ import { Trash2, ChevronRight } from 'lucide-react';
 /**
  * SwipeableCard - A card component with swipe actions for mobile
  * @param {ReactNode} children - The card content
- * @param {function} onSwipeLeft - Action when swiped left (e.g., delete)
- * @param {function} onSwipeRight - Action when swiped right (e.g., navigate)
+ * @param {function} onSwipeLeft - Action when swiped left (e.g., reply)
+ * @param {function} onSwipeRight - Action when swiped right (e.g., delete)
  * @param {string} leftLabel - Label for left swipe action
  * @param {string} rightLabel - Label for right swipe action
  * @param {string} leftColor - Background color for left action (default: red)
  * @param {string} rightColor - Background color for right action (default: green)
+ * @param {Component} LeftIcon - Custom icon for left action (default: Trash2)
+ * @param {Component} RightIcon - Custom icon for right action (default: ChevronRight)
  * @param {boolean} disabled - Disable swipe actions
  */
 export function SwipeableCard({
@@ -20,6 +22,8 @@ export function SwipeableCard({
     rightLabel = 'Öppna',
     leftColor = 'bg-red-500',
     rightColor = 'bg-green-500',
+    LeftIcon = Trash2,
+    RightIcon = ChevronRight,
     disabled = false,
     className = '',
 }) {
@@ -114,7 +118,7 @@ export function SwipeableCard({
                 {/* Right action (swipe right reveals this on left) */}
                 {onSwipeRight && (
                     <div className={`flex items-center justify-start px-4 w-1/2 ${rightColor} text-white`}>
-                        <ChevronRight className="h-5 w-5 mr-2" />
+                        <RightIcon className="h-5 w-5 mr-2" />
                         <span className="text-sm font-medium">{rightLabel}</span>
                     </div>
                 )}
@@ -123,7 +127,7 @@ export function SwipeableCard({
                 {onSwipeLeft && (
                     <div className={`flex items-center justify-end px-4 w-1/2 ml-auto ${leftColor} text-white`}>
                         <span className="text-sm font-medium mr-2">{leftLabel}</span>
-                        <Trash2 className="h-5 w-5" />
+                        <LeftIcon className="h-5 w-5" />
                     </div>
                 )}
             </div>
