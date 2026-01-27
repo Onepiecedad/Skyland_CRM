@@ -100,13 +100,15 @@ DINA FUNKTIONER:
 - update_customer: Uppdatera kundinformation (behöver customer_id från kontexten)
 - update_job: Uppdatera jobb (behöver job_id från kontexten)
 - create_job: Skapa nytt jobb för en kund (behöver customer_id)
+- convert_lead_to_customer: Gör en lead till en permanent kund
+- suggest_reply: Generera svarsförslag baserat på Thomas stil och ton
 
 NUVARANDE DATA I CRM:
 - Totalt ${context?.stats?.leads || 0} leads, ${context?.stats?.customers || 0} kunder, ${context?.stats?.jobs || 0} jobb, ${context?.stats?.messages || 0} meddelanden
 
-SENASTE LEADS (förfrågningar att svara på):
+SENASTE LEADS (ID för convert_lead_to_customer):
 ${context?.recentLeads?.length > 0
-        ? context.recentLeads.map(l => `• ${l.name || 'Okänd'} (${l.email || 'ingen email'}): "${l.ai_summary || l.subject || 'Ingen beskrivning'}" [${l.ai_category || 'Okategoriserad'}]`).join('\n')
+        ? context.recentLeads.map(l => `• [Lead-ID: ${l.id}] ${l.name || 'Okänd'} (${l.email || 'ingen email'}): "${l.ai_summary || l.subject || 'Ingen beskrivning'}" [${l.ai_category || 'Okategoriserad'}] Status: ${l.status || 'new'}`).join('\n')
         : '(Inga leads)'}
 
 KUNDER I SYSTEMET (ID för update_customer):
@@ -127,6 +129,11 @@ ${context?.recentMessages?.length > 0
         }).join('\n\n')
         : '(Inga meddelanden)'}
 
+THOMAS SKRIVSÄTT (använd som inspiration för svarsförslag):
+${context?.outboundEmails?.length > 0
+        ? context.outboundEmails.slice(0, 5).map(m => `---\n${cleanEmailForAI(m.body_full || m.body_preview || '')}`).join('\n')
+        : '(Inga utgående mail att lära av)'}
+
 Nuvarande datum: ${new Date().toLocaleDateString('sv-SE')}
 Användaren befinner sig på: ${context?.currentPage || 'okänd sida'}`;
 
@@ -136,7 +143,7 @@ export function AiAssistant() {
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            content: 'Hej! 👋 Jag är din AI-assistent för CRM:et. Jag kan svara på frågor om kunder och leads, och **skicka mail** åt dig!\n\nExempel:\n• "Berätta om Jan Gustafsson"\n• "Visa nya leads"\n• "Skicka mail till test@example.com och tacka för förfrågan"\n• "Svara på senaste mailet från..."'
+            content: 'Hej! 👋 Jag är din AI-assistent för CRM:et. Jag kan hjälpa dig med:\n\n📧 **Mail** - skicka/svarsförslag i din stil\n✏️ **Redigera** - uppdatera kunder & jobb\n🔄 **Konvertera** - gör leads till kunder\n\nExempel:\n• "Föreslå ett svar på mailet från Erik"\n• "Gör lead Jan Gustafsson till kund"\n• "Ändra status på motorservice till färdigt"'
         }
     ]);
     const [input, setInput] = useState('');
@@ -204,6 +211,15 @@ export function AiAssistant() {
                 .order('received_at', { ascending: false })
                 .limit(30);
 
+            // Hämta Thomas utgående mail för stilmatchning
+            const { data: outboundEmails } = await supabase
+                .from('messages')
+                .select('body_full, body_preview, subject')
+                .eq('direction', 'outbound')
+                .not('body_full', 'is', null)
+                .order('sent_at', { ascending: false })
+                .limit(10);
+
             // Hämta statistik
             const { count: leadsCount } = await supabase
                 .from('leads')
@@ -246,6 +262,7 @@ export function AiAssistant() {
                 recentCustomers: customers || [],
                 activeJobs: jobs || [],
                 recentMessages: messagesData || [],
+                outboundEmails: outboundEmails || [],
                 currentPage: getPageName(location.pathname)
             };
 

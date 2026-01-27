@@ -100,6 +100,42 @@ const tools = [
                 required: ["customer_id", "customer_name", "title"]
             }
         }
+    },
+    {
+        type: "function",
+        function: {
+            name: "convert_lead_to_customer",
+            description: "Konvertera en lead till en riktig kund. Använd när användaren vill göra en lead till en permanent kund i systemet.",
+            parameters: {
+                type: "object",
+                properties: {
+                    lead_id: { type: "string", description: "Leadens ID (UUID)" },
+                    lead_name: { type: "string", description: "Leadens namn (för bekräftelse)" },
+                    lead_email: { type: "string", description: "Leadens e-postadress" },
+                    boat_model: { type: "string", description: "Båtmodell om känd" },
+                    engine_brand: { type: "string", description: "Motormärke om känt" },
+                    phone: { type: "string", description: "Telefonnummer om känt" }
+                },
+                required: ["lead_id", "lead_name", "lead_email"]
+            }
+        }
+    },
+    {
+        type: "function",
+        function: {
+            name: "suggest_reply",
+            description: "Generera ett svarsförslag på ett mail/meddelande. Förslaget baseras på Thomas tidigare mailsvar och matchar hans ton och stil. Använd när användaren ber om hjälp att svara på ett mail.",
+            parameters: {
+                type: "object",
+                properties: {
+                    original_message: { type: "string", description: "Det ursprungliga meddelandet att svara på" },
+                    sender_name: { type: "string", description: "Avsändarens namn" },
+                    sender_email: { type: "string", description: "Avsändarens e-post (för att skicka svaret)" },
+                    context: { type: "string", description: "Extra kontext om kunden eller ärendet" }
+                },
+                required: ["original_message", "sender_name", "sender_email"]
+            }
+        }
     }
 ];
 
@@ -202,6 +238,58 @@ async function createJob(data: Record<string, any>): Promise<{ success: boolean;
         return { success: true, jobId: job.id };
     } catch (error) {
         console.error('Create job error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Convert lead to customer
+async function convertLeadToCustomer(leadId: string, leadData: Record<string, any>): Promise<{ success: boolean; error?: string; customerId?: string }> {
+    try {
+        const supabase = getSupabaseClient();
+
+        // Create the customer
+        const { data: customer, error: customerError } = await supabase
+            .from('customers')
+            .insert({
+                name: leadData.lead_name,
+                email: leadData.lead_email,
+                phone: leadData.phone || null,
+                boat_model: leadData.boat_model || null,
+                engine_brand: leadData.engine_brand || null,
+                source: 'lead_conversion',
+                status: 'active'
+            })
+            .select()
+            .single();
+
+        if (customerError) throw customerError;
+
+        // Update the lead status to 'converted' and link to customer
+        const { error: leadError } = await supabase
+            .from('leads')
+            .update({
+                status: 'converted',
+                customer_id: customer.id
+            })
+            .eq('id', leadId);
+
+        if (leadError) {
+            console.warn('Could not update lead status:', leadError);
+        }
+
+        // Update any messages from this lead to link to the new customer
+        const { error: msgError } = await supabase
+            .from('messages')
+            .update({ customer_id: customer.id })
+            .eq('lead_id', leadId);
+
+        if (msgError) {
+            console.warn('Could not update messages:', msgError);
+        }
+
+        return { success: true, customerId: customer.id };
+    } catch (error) {
+        console.error('Convert lead to customer error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -309,6 +397,41 @@ serve(async (req) => {
                             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
                         );
                     }
+                }
+
+                case 'convert_lead_to_customer': {
+                    const result = await convertLeadToCustomer(params.lead_id, params);
+                    if (result.success) {
+                        return new Response(
+                            JSON.stringify({
+                                message: `✅ **${params.lead_name}** är nu en kund!\n\n📧 ${params.lead_email}${params.phone ? `\n📞 ${params.phone}` : ''}${params.boat_model ? `\n⛵ ${params.boat_model}` : ''}`,
+                                actionCompleted: true
+                            }),
+                            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+                        );
+                    } else {
+                        return new Response(
+                            JSON.stringify({ message: `❌ Kunde inte konvertera lead: ${result.error}`, actionCompleted: false }),
+                            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+                        );
+                    }
+                }
+
+                case 'suggest_reply': {
+                    // For suggest_reply, we don't execute anything - just confirm the reply was approved
+                    // The actual sending is handled separately via send_email
+                    return new Response(
+                        JSON.stringify({
+                            message: `📝 Svarsförslaget har godkänts!\n\nAnvänd "Skicka mail"-knappen för att skicka det.`,
+                            actionCompleted: true,
+                            suggestedReply: {
+                                to: params.sender_email,
+                                subject: `Re: Förfrågan`,
+                                body: params.suggested_body || ''
+                            }
+                        }),
+                        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+                    );
                 }
 
                 default:
