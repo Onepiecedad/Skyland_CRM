@@ -81,7 +81,10 @@ DINA ROLLER:
 2. Hjälpa till att formulera professionella mail och svar
 3. Ge översikter och statistik
 4. Söka och hitta information i ALL data
-5. SKICKA MAIL på kommando - du kan skicka riktiga mail åt användaren!
+5. SKICKA MAIL på kommando - du kan skicka riktiga mail!
+6. REDIGERA KUNDER - uppdatera telefonnummer, email, båtmodell etc.
+7. REDIGERA JOBB - ändra status, datum, beskrivning
+8. SKAPA JOBB - skapa nya jobb för kunder
 
 REGLER:
 - Svara ALLTID på svenska
@@ -90,12 +93,13 @@ REGLER:
 - Om du inte hittar något, var ärlig och föreslå alternativ
 - Formatera svar med emojis för att göra dem lättlästa
 - När någon frågar om en person, sök i ALLA tabeller (kunder, leads, meddelanden)
+- ALLA ändringar kräver bekräftelse från användaren!
 
-SKICKA MAIL:
-- När användaren ber dig skicka ett mail, använd send_email-funktionen
-- Skriv professionella, vänliga mail som passar marinmekanikerverksamheten
-- Signera med "Med vänliga hälsningar, Thomas Guldager / Marinmekaniker AB"
-- Användaren kommer se mailet och kan bekräfta eller avbryta innan det skickas
+DINA FUNKTIONER:
+- send_email: Skicka mail (professionellt, signera med "Med vänliga hälsningar, Thomas Guldager / Marinmekaniker AB")
+- update_customer: Uppdatera kundinformation (behöver customer_id från kontexten)
+- update_job: Uppdatera jobb (behöver job_id från kontexten)
+- create_job: Skapa nytt jobb för en kund (behöver customer_id)
 
 NUVARANDE DATA I CRM:
 - Totalt ${context?.stats?.leads || 0} leads, ${context?.stats?.customers || 0} kunder, ${context?.stats?.jobs || 0} jobb, ${context?.stats?.messages || 0} meddelanden
@@ -105,14 +109,14 @@ ${context?.recentLeads?.length > 0
         ? context.recentLeads.map(l => `• ${l.name || 'Okänd'} (${l.email || 'ingen email'}): "${l.ai_summary || l.subject || 'Ingen beskrivning'}" [${l.ai_category || 'Okategoriserad'}]`).join('\n')
         : '(Inga leads)'}
 
-KUNDER I SYSTEMET:
+KUNDER I SYSTEMET (ID för update_customer):
 ${context?.recentCustomers?.length > 0
-        ? context.recentCustomers.map(c => `• ${c.name || 'Okänd'}: Båt: ${c.boat_model || 'Okänd'}, Motor: ${c.engine_brand || 'Okänd'}, Tel: ${c.phone || 'Saknas'}, Email: ${c.email || 'Saknas'}`).join('\n')
+        ? context.recentCustomers.map(c => `• [ID: ${c.id}] ${c.name || 'Okänd'}: Båt: ${c.boat_model || 'Okänd'}, Motor: ${c.engine_brand || 'Okänd'}, Tel: ${c.phone || 'Saknas'}, Email: ${c.email || 'Saknas'}`).join('\n')
         : '(Inga kunder)'}
 
-AKTIVA JOBB:
+AKTIVA JOBB (ID för update_job):
 ${context?.activeJobs?.length > 0
-        ? context.activeJobs.map(j => `• ${j.title || 'Utan titel'}: Status ${j.status}, Schemalagt: ${j.scheduled_date || 'Ej schemalagt'}`).join('\n')
+        ? context.activeJobs.map(j => `• [ID: ${j.id}] [Kund-ID: ${j.customer_id}] ${j.title || 'Utan titel'}: Status ${j.status}, Schemalagt: ${j.scheduled_date || 'Ej schemalagt'}`).join('\n')
         : '(Inga aktiva jobb)'}
 
 SENASTE MEDDELANDEN (mail-korrespondens):
@@ -123,7 +127,8 @@ ${context?.recentMessages?.length > 0
         }).join('\n\n')
         : '(Inga meddelanden)'}
 
-Nuvarande datum: ${new Date().toLocaleDateString('sv-SE')}`;
+Nuvarande datum: ${new Date().toLocaleDateString('sv-SE')}
+Användaren befinner sig på: ${context?.currentPage || 'okänd sida'}`;
 
 export function AiAssistant() {
     const [isOpen, setIsOpen] = useState(false);
@@ -137,7 +142,7 @@ export function AiAssistant() {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [crmContext, setCrmContext] = useState(null);
-    const [pendingEmail, setPendingEmail] = useState(null);
+    const [pendingAction, setPendingAction] = useState(null);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const location = useLocation();
@@ -216,6 +221,20 @@ export function AiAssistant() {
                 .from('messages')
                 .select('*', { count: 'exact', head: true });
 
+            // Map pathname to readable page name
+            const getPageName = (pathname) => {
+                const pageMap = {
+                    '/': 'Idag (Dashboard)',
+                    '/leads': 'Leads',
+                    '/customers': 'Kunder',
+                    '/jobs': 'Jobb',
+                    '/messages': 'Meddelanden',
+                    '/calendar': 'Kalender',
+                    '/settings': 'Inställningar'
+                };
+                return pageMap[pathname] || pathname;
+            };
+
             const context = {
                 stats: {
                     leads: leadsCount || 0,
@@ -226,7 +245,8 @@ export function AiAssistant() {
                 recentLeads: leads || [],
                 recentCustomers: customers || [],
                 activeJobs: jobs || [],
-                recentMessages: messagesData || []
+                recentMessages: messagesData || [],
+                currentPage: getPageName(location.pathname)
             };
 
             setCrmContext(context);
@@ -238,12 +258,12 @@ export function AiAssistant() {
     };
 
     // Anropa AI via Supabase Edge Function (säker - API-nyckel på servern)
-    const callAI = async (messages, context, confirmSendEmail = null) => {
+    const callAI = async (messages, context, confirmAction = null) => {
         const systemMessage = { role: 'system', content: getSystemPrompt(context) };
         const allMessages = [systemMessage, ...messages.map(m => ({ role: m.role, content: m.content }))];
 
         const { data, error } = await supabase.functions.invoke('ai-assistant', {
-            body: { messages: allMessages, confirmSendEmail }
+            body: { messages: allMessages, confirmAction }
         });
 
         if (error) {
@@ -254,7 +274,7 @@ export function AiAssistant() {
             throw new Error(data.error);
         }
 
-        // Return full data to handle pendingEmail
+        // Return full data to handle pendingAction
         return data;
     };
 
@@ -282,9 +302,9 @@ export function AiAssistant() {
                 context
             );
 
-            // Check if AI wants to send an email (needs confirmation)
-            if (response.pendingEmail) {
-                setPendingEmail(response.pendingEmail);
+            // Check if AI wants to perform an action (needs confirmation)
+            if (response.pendingAction) {
+                setPendingAction(response.pendingAction);
             }
 
             setMessages(prev => [...prev, { role: 'assistant', content: response.message || 'Kunde inte generera svar.' }]);
@@ -306,32 +326,36 @@ export function AiAssistant() {
         }
     };
 
-    // Confirm sending the pending email
-    const confirmEmail = async () => {
-        if (!pendingEmail) return;
+    // Confirm the pending action
+    const confirmActionHandler = async () => {
+        if (!pendingAction) return;
 
         setIsLoading(true);
         try {
-            const response = await callAI([], crmContext, pendingEmail);
+            const response = await callAI([], crmContext, pendingAction);
             setMessages(prev => [...prev, { role: 'assistant', content: response.message }]);
-            setPendingEmail(null);
+            setPendingAction(null);
+            // Refresh context after data changes
+            if (pendingAction.action !== 'send_email') {
+                loadCrmContext();
+            }
         } catch (error) {
-            console.error('Error sending email:', error);
+            console.error('Error executing action:', error);
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                content: `❌ Kunde inte skicka mailet: ${error.message}`
+                content: `❌ Kunde inte utföra åtgärden: ${error.message}`
             }]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Cancel sending the pending email
-    const cancelEmail = () => {
-        setPendingEmail(null);
+    // Cancel the pending action
+    const cancelActionHandler = () => {
+        setPendingAction(null);
         setMessages(prev => [...prev, {
             role: 'assistant',
-            content: '👍 Okej, mailet skickades inte. Behöver du hjälp med något annat?'
+            content: '👍 Okej, åtgärden avbröts. Behöver du hjälp med något annat?'
         }]);
     };
 
@@ -442,19 +466,19 @@ export function AiAssistant() {
                             </div>
                         )}
 
-                        {/* Email confirmation buttons */}
-                        {pendingEmail && !isLoading && (
+                        {/* Action confirmation buttons */}
+                        {pendingAction && !isLoading && (
                             <div className="flex gap-2 justify-center mt-2">
                                 <Button
-                                    onClick={confirmEmail}
+                                    onClick={confirmActionHandler}
                                     size="sm"
                                     className="bg-green-500 hover:bg-green-600 text-white"
                                 >
-                                    <Mail className="h-4 w-4 mr-1" />
-                                    Skicka mail
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    {pendingAction.action === 'send_email' ? 'Skicka mail' : 'Bekräfta'}
                                 </Button>
                                 <Button
-                                    onClick={cancelEmail}
+                                    onClick={cancelActionHandler}
                                     size="sm"
                                     variant="outline"
                                     className="border-red-300 text-red-600 hover:bg-red-50"
