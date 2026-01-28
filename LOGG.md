@@ -1,5 +1,215 @@
 # Utvecklingslogg
 
+## 2026-01-28 - Smart Lead Routing: Fas 2.5 (Dynamisk AI-Klassificering)
+
+### 📋 Status: ✅ SLUTFÖRD (2026-01-28 17:00)
+
+**Refaktorering:** Ersatte hårdkodade partner portal-regler med dynamisk AI-klassificering.
+
+#### Motivation
+
+Ursprunglig implementation hade hårdkodade regler för Offerta/Byggleads detection. Problem:
+
+- Manuell kodändring krävdes för nya portaler
+- Regex-mönster missade variationer
+- Ingen lärförmåga
+
+#### Ny Edge Function: `classify-email`
+
+Kombinerar klassificering + extraktion i ett AI-anrop:
+
+```typescript
+// Input
+{ subject, body, fromEmail, fromName, messageId, autoCreateLead }
+
+// Output
+{
+  classification: { mailType, portalName, isNewLead, shouldCreateLead, confidence },
+  priority: "high/medium/low",
+  extractedData: { customerName, phone, email, summary, category, urgency },
+  leadCreated: true/false,
+  leadId: "uuid"
+}
+```
+
+**mailType kan vara:**
+
+- `lead_portal` - Offerta, Byggleads, Blocket, etc.
+- `direct_inquiry` - Direkta kundförfrågningar
+- `existing_customer` - Känd/återkommande kund
+- `spam`, `newsletter`, `invoice`, `other`
+
+#### n8n Workflow Uppdaterat
+
+**Tidigare flöde (hårdkodat):**
+
+```
+Is New? → IF Partner Portal → (TRUE) AI Extract → (FALSE) Match Customer
+```
+
+**Nytt flöde (dynamiskt):**
+
+```
+Is New? (TRUE) → AI Classify Email → Match Customer → Prepare Insert → Insert Message
+```
+
+**Borttagna noder:**
+
+- `IF Partner Portal` - Ersatt av AI-klassificering
+- `AI Extract Lead Info` - Ersatt av `AI Classify Email`
+
+#### Fördelar
+
+| Aspekt | Före | Efter |
+|--------|------|-------|
+| Nya portaler | Kräver kodändring | Fungerar automatiskt |
+| Edge cases | Missas | AI förstår kontext |
+| Underhåll | Manuellt | Självlärande |
+| Kostnad | Gratis | ~$0.001/mail |
+
+#### Filer
+
+- **Ny:** `supabase/functions/classify-email/index.ts`
+- **Behållen:** `supabase/functions/extract-lead-info/index.ts` (backup)
+
+---
+
+## 2026-01-28 - Smart Lead Routing: Fas 2 (AI-driven Extraction)
+
+**Implementerat:**
+
+#### 1. Ny Edge Function: `extract-lead-info`
+
+Skapad och deployad till Supabase. Funktionen:
+
+- **Input:** subject, body, portalName, messageId (från n8n)
+- **Process:**
+  - Extraherar Offerta-ID från ämnesrad
+  - Anropar OpenAI GPT-4o-mini med optimerat system prompt
+  - Parsar JSON-svar från AI
+- **Output:** Skapar lead i Supabase med:
+  - Kundnamn, telefon, email (om tillgängligt)
+  - AI-genererad sammanfattning och kategori
+  - Prioritet (high/medium/low) baserat på brådskande + konkurrens
+  - Källa (Offerta/Byggleads) och source_id
+
+**System prompt optimerad för:**
+
+- Svenska förfrågningar
+- Offerta/Byggleads mailformat
+- Prioritetsklassificering
+
+**Fil skapad:**
+
+- `supabase/functions/extract-lead-info/index.ts`
+
+#### 2. n8n Workflow Uppdaterat
+
+Workflow `Email_IMAP_Ingest` har uppdaterats med:
+
+- **NY NOD:** `AI Extract Lead Info` (HTTP Request)
+  - Method: POST
+  - URL: `https://aclcpanlrhnyszivvmdy.supabase.co/functions/v1/extract-lead-info`
+  - Body: `{ subject, body, portalName, messageId }`
+
+- **Anslutningar:**
+  - `Is New?` (TRUE) → `IF Partner Portal`
+  - `IF Partner Portal` (TRUE) → `AI Extract Lead Info`
+  - `IF Partner Portal` (FALSE) → `Match Customer` (standard flöde)
+
+#### 3. Flöde för Partner Portal Leads
+
+```
+Mail inkommer → IMAP → Process Email Data (detectPartnerPortal) 
+  → Check Duplicate → Is New? 
+    → TRUE: IF Partner Portal
+      → TRUE (Offerta/Byggleads): AI Extract Lead Info → Lead skapas med AI-data
+      → FALSE (vanlig avsändare): Match Customer → standard flöde
+    → FALSE: Skip Duplicate
+```
+
+#### ⚠️ Notering
+
+`AI Extract Lead Info` noden har för närvarande ingen output-anslutning. Edge Function `extract-lead-info` skapar leaden direkt i databasen, så flödet fungerar korrekt. Framtida förbättring: lägg till error-hantering och loggning.
+
+---
+
+## 2026-01-28 - Smart Lead Routing: Fas 1 (Partner Portal Detection)
+
+### 📋 Status: ✅ SLUTFÖRD (2026-01-28 16:00)
+
+**Implementerat i n8n workflow `Email_IMAP_Ingest`:**
+
+- **Process Email Data:** Lagt till `detectPartnerPortal()` funktion som identifierar mail från Offerta och Byggleads baserat på avsändaradress och ämnesrad
+- **Match Customer:** Uppdaterad för att skippa kundmatchning om `isPartnerPortal && forceNewLead`
+- **Prepare Insert:** Sätter `customer_id = null` för portal-mail → trigger `auto_create_lead_from_message` skapar lead
+
+**Partner-konfiguration:**
+
+- Offerta: `info@offerta.se`, `noreply@offerta.se` + subject patterns `(id:`, `offerta`
+- Byggleads: `noreply@byggleads.se`, `info@byggleads.se` + subject patterns `ny forfr`, `byggleads`
+
+---
+
+## 2026-01-28 - Smart Lead Routing: Fas 0 (Akut Åtgärd)
+
+### 📋 Projektöversikt
+
+**Problem:** Mail från partner-portaler (Offerta.se) kommer från generiska adresser (`info@offerta.se`). Systemet matchar mot befintligt kundkort och skapar ALDRIG en lead.
+
+**Konsekvens:** Tidskänsliga Offerta-förfrågningar missas helt.
+
+**Status:** ✅ SLUTFÖRD (2026-01-28 15:51)
+
+### Genomförd workaround
+
+#### Steg 1: Hitta Offerta-mailet
+
+```sql
+SELECT id, subject, from_email, from_name, created_at, customer_id, lead_id
+FROM messages
+WHERE subject ILIKE '%51011%' OR subject ILIKE '%offerta%'
+ORDER BY created_at DESC LIMIT 5;
+```
+
+#### Steg 2: Skapa lead manuellt
+
+```sql
+INSERT INTO leads (name, email, phone, subject, source, status, ai_summary, ai_category, created_at)
+VALUES (
+  'Offerta-kund (Id:51011)',
+  NULL,
+  NULL,
+  'Offerta-förfrågan (Id:51011)',
+  'Offerta',
+  'new',
+  'Förfrågan från Offerta.se - behöver granskas manuellt',
+  'QUOTE',
+  NOW()
+) RETURNING id;
+```
+
+#### Steg 3: Soft-delete Offerta-kundkortet
+
+```sql
+-- Hitta kundkortet
+SELECT id, name, email FROM customers WHERE email ILIKE '%offerta%' OR name ILIKE '%offerta%';
+
+-- Soft-delete (temporärt)
+UPDATE customers SET deleted_at = NOW() WHERE email = 'info@offerta.se';
+```
+
+### Nästa steg
+
+- [ ] Fas 1: Partner Portal Detection i n8n
+- [ ] Fas 2: AI-driven Extraction med OpenAI
+- [ ] Fas 3: Prioritering & Notifieringar
+- [ ] Fas 4: Testning & Validering
+
+**Handlingsplan:** Se [HANDLINGSPLAN_SMART_LEAD_ROUTING.md](docs/HANDLINGSPLAN_SMART_LEAD_ROUTING.md)
+
+---
+
 ## 2026-01-28 - Fas 17: PWA (Progressive Web App)
 
 ### 📋 Projektöversikt
