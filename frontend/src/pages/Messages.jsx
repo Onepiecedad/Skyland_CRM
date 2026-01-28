@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
@@ -8,10 +8,13 @@ import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRe
 import { MessageModal } from '../components/MessageModal';
 import { ReplyModal } from '../components/ReplyModal';
 import { SwipeableCard } from '../components/SwipeableCard';
+import { UndoToast } from '../components/UndoToast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '../hooks/use-toast';
+import { useUndoableAction } from '../hooks/useUndoableAction';
+import { fixSwedishEncoding, decodeQuotedPrintable } from '../lib/textUtils';
 import {
     Mail,
     ArrowUpDown,
@@ -26,46 +29,8 @@ import {
 } from 'lucide-react';
 
 // ============================================
-// UTILITIES - Textrensning
+// UTILITIES - Page-specific helpers
 // ============================================
-
-/**
- * Fixa svenska tecken som blivit fel-kodade (mojibake)
- */
-const fixSwedishEncoding = (text) => {
-    if (!text) return '';
-
-    const replacements = {
-        'Ã¥': 'å', 'Ã¤': 'ä', 'Ã¶': 'ö',
-        'Ã…': 'Å', 'Ã„': 'Ä', 'Ã–': 'Ö',
-        'Ã©': 'é', 'Ã¨': 'è', 'Ã': 'à',
-        'â€™': "'", 'â€œ': '"', 'â€': '"',
-        'â€"': '–', 'Â': '',
-    };
-
-    let fixed = text;
-    for (const [wrong, correct] of Object.entries(replacements)) {
-        fixed = fixed.replace(new RegExp(wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), correct);
-    }
-
-    return fixed;
-};
-
-/**
- * Dekoda quoted-printable encoding
- */
-const decodeQuotedPrintable = (text) => {
-    if (!text) return '';
-    try {
-        let decoded = text.replace(/=([0-9A-F]{2})/gi, (match, hex) => {
-            return String.fromCharCode(parseInt(hex, 16));
-        });
-        decoded = decoded.replace(/=\r?\n/g, '');
-        return decoded;
-    } catch (e) {
-        return text;
-    }
-};
 
 /**
  * Ta bort HTML och extrahera ren text
@@ -234,13 +199,15 @@ export const Messages = () => {
     const [sortDirection, setSortDirection] = useState('desc');
     const [searchQuery, setSearchQuery] = useState('');
     const [directionFilter, setDirectionFilter] = useState('all');
-    const [deletingId, setDeletingId] = useState(null);
 
     // Modal states
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [showMessageModal, setShowMessageModal] = useState(false);
     const [showReplyModal, setShowReplyModal] = useState(false);
     const [replyToMessage, setReplyToMessage] = useState(null);
+
+    // Undoable delete state - needs to be declared before filteredMessages
+    const [hiddenMessageIds, setHiddenMessageIds] = useState(new Set());
 
     const { toast } = useToast();
 
@@ -276,14 +243,6 @@ export const Messages = () => {
                 .limit(100);
 
             if (fetchError) throw fetchError;
-            console.log('📧 Messages fetched:', data?.length, 'Sample:', data?.[0] ? {
-                id: data[0].id,
-                subject: data[0].subject,
-                body_preview: data[0].body_preview?.substring(0, 100),
-                body_full: data[0].body_full?.substring(0, 100),
-                has_body_full: !!data[0].body_full,
-                has_body_preview: !!data[0].body_preview
-            } : 'No data');
             setMessages(data || []);
         } catch (err) {
             console.error('Error fetching messages:', err);
@@ -314,6 +273,9 @@ export const Messages = () => {
     const filteredMessages = useMemo(() => {
         let result = messages;
 
+        // Hide messages that are pending deletion
+        result = result.filter(msg => !hiddenMessageIds.has(msg.id));
+
         if (directionFilter !== 'all') {
             result = result.filter(msg => msg.direction === directionFilter);
         }
@@ -330,7 +292,7 @@ export const Messages = () => {
         }
 
         return result;
-    }, [messages, searchQuery, directionFilter]);
+    }, [messages, searchQuery, directionFilter, hiddenMessageIds]);
 
     const toggleSort = (field) => {
         if (sortField === field) {
@@ -382,10 +344,12 @@ export const Messages = () => {
         setShowReplyModal(true);
     };
 
-    const handleDelete = async (messageId) => {
+    // Undoable delete functionality
+    const [pendingDeleteId, setPendingDeleteId] = useState(null);
+
+    const executeDelete = useCallback(async (messageId) => {
         try {
-            setDeletingId(messageId);
-            // Soft delete - move to trash
+            // Actually delete (soft delete) the message
             const { error } = await supabase
                 .from('messages')
                 .update({ deleted_at: new Date().toISOString() })
@@ -393,24 +357,65 @@ export const Messages = () => {
 
             if (error) throw error;
 
-            toast({
-                title: 'Flyttat till papperskorgen',
-                description: 'Meddelandet kan återställas från papperskorgen',
+            // Remove from the hidden set and the actual list
+            setHiddenMessageIds(prev => {
+                const next = new Set(prev);
+                next.delete(messageId);
+                return next;
             });
-
             setMessages(prev => prev.filter(m => m.id !== messageId));
-            setShowMessageModal(false);
-            setSelectedMessage(null);
         } catch (err) {
             console.error('Error deleting message:', err);
+            // Restore visibility if delete failed
+            setHiddenMessageIds(prev => {
+                const next = new Set(prev);
+                next.delete(messageId);
+                return next;
+            });
             toast({
                 title: 'Fel',
                 description: 'Kunde inte radera meddelandet',
                 variant: 'destructive',
             });
-        } finally {
-            setDeletingId(null);
         }
+    }, [toast]);
+
+    const handleUndo = useCallback((messageId) => {
+        // Just restore visibility - the message was never actually deleted
+        setPendingDeleteId(null);
+        setHiddenMessageIds(prev => {
+            const next = new Set(prev);
+            next.delete(messageId);
+            return next;
+        });
+        toast({
+            title: 'Ångrad',
+            description: 'Meddelandet återställdes',
+        });
+    }, [toast]);
+
+    const {
+        initiateAction: initiateDelete,
+        cancelAction: cancelDelete,
+        isPending: isDeletePending,
+        remainingTime,
+        progress,
+        pendingData: pendingDeleteData,
+    } = useUndoableAction({
+        timeout: 5000,
+        onExecute: executeDelete,
+        onUndo: handleUndo,
+    });
+
+    const handleDelete = (messageId) => {
+        setPendingDeleteId(messageId);
+        // Hide the message immediately for better UX
+        setHiddenMessageIds(prev => new Set(prev).add(messageId));
+        // Close modals if open
+        setShowMessageModal(false);
+        setSelectedMessage(null);
+        // Start the undoable delete
+        initiateDelete(messageId);
     };
 
     const SortButton = ({ field, label }) => (
@@ -547,7 +552,7 @@ export const Messages = () => {
                                     onSwipeRight={() => handleDelete(message.id)}
                                     rightLabel="Radera"
                                     rightColor="bg-red-500 hover:bg-red-600"
-                                    disabled={deletingId === message.id}
+                                    disabled={isDeletePending}
                                     className="border-b last:border-b-0"
                                 >
                                     <MessageRow
@@ -601,6 +606,15 @@ export const Messages = () => {
                         description: 'Ditt svar har skickats',
                     });
                 }}
+            />
+
+            {/* Undo Toast for delete actions */}
+            <UndoToast
+                message="Meddelande raderas..."
+                progress={progress}
+                remainingTime={remainingTime}
+                onUndo={cancelDelete}
+                isVisible={isDeletePending}
             />
         </div>
     );

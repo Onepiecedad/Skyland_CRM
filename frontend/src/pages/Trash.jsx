@@ -12,13 +12,13 @@ import {
     RotateCcw,
     AlertTriangle,
     RefreshCw,
-    Trash
+    Trash as TrashIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { toast } from 'sonner';
 
-export const Trash_ = () => {
+export const Trash = () => {
     const [messages, setMessages] = useState([]);
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -144,7 +144,7 @@ export const Trash_ = () => {
                             {emptyingTrash ? (
                                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                             ) : (
-                                <Trash className="h-4 w-4 mr-2" />
+                                <TrashIcon className="h-4 w-4 mr-2" />
                             )}
                             Töm papperskorg
                         </Button>

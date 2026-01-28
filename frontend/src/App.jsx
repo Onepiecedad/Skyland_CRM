@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { queryClient, QueryClientProvider } from './lib/queryClient';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { FloatingActionButton } from './components/FloatingActionButton';
 import { AiAssistant } from './components/AiAssistant';
@@ -13,9 +14,9 @@ import { JobList } from './pages/JobList';
 import { JobDetail } from './pages/JobDetail';
 import { JobCreate } from './pages/JobCreate';
 import { LeadsPage } from './pages/LeadsPage';
-import { Trash_ } from './pages/Trash';
-import { Calendar_ } from './pages/Calendar';
-import { Notes_ } from './pages/Notes';
+import { Trash } from './pages/Trash';
+import { Calendar } from './pages/Calendar';
+import { Notes } from './pages/Notes';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 
@@ -125,7 +126,7 @@ function AppContent() {
                     path="/papperskorg"
                     element={
                         <ProtectedRoute>
-                            <Trash_ />
+                            <Trash />
                         </ProtectedRoute>
                     }
                 />
@@ -134,7 +135,7 @@ function AppContent() {
                     path="/kalender"
                     element={
                         <ProtectedRoute>
-                            <Calendar_ />
+                            <Calendar />
                         </ProtectedRoute>
                     }
                 />
@@ -143,7 +144,7 @@ function AppContent() {
                     path="/anteckningar"
                     element={
                         <ProtectedRoute>
-                            <Notes_ />
+                            <Notes />
                         </ProtectedRoute>
                     }
                 />
@@ -161,12 +162,14 @@ function AppContent() {
 
 function App() {
     return (
-        <div className="min-h-screen bg-background overflow-x-hidden">
-            <BrowserRouter>
-                <AppContent />
-            </BrowserRouter>
-            <Toaster />
-        </div>
+        <QueryClientProvider client={queryClient}>
+            <div className="min-h-screen bg-background overflow-x-hidden">
+                <BrowserRouter>
+                    <AppContent />
+                </BrowserRouter>
+                <Toaster />
+            </div>
+        </QueryClientProvider>
     );
 }
 

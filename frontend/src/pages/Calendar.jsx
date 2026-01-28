@@ -11,7 +11,7 @@ import { sv } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { formatCustomerName } from '../lib/formatName';
 
-export const Calendar_ = () => {
+export const Calendar = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [jobs, setJobs] = useState([]);
@@ -390,4 +390,4 @@ export const Calendar_ = () => {
     );
 };
 
-export default Calendar_;
+export default Calendar;

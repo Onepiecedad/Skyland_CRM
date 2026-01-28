@@ -21,7 +21,7 @@ const PRIORITIES = {
     urgent: { label: 'Brådskande', color: 'bg-red-100 text-red-700 border-red-200' },
 };
 
-export const Notes_ = () => {
+export const Notes = () => {
     const [notes, setNotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedNote, setSelectedNote] = useState(null);
@@ -433,4 +433,4 @@ function NoteCard({ note, onClick, hasOverdueReminder }) {
     );
 }
 
-export default Notes_;
+export default Notes;

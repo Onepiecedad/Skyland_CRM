@@ -1,5 +1,418 @@
 # Utvecklingslogg
 
+## 2026-01-28 - Fas 17: PWA (Progressive Web App)
+
+### 📋 Projektöversikt
+
+**Mål:** Göra Skyland CRM installerbar på mobila enheter med offline-stöd.
+
+**Status:** ✅ IMPLEMENTERAT & BYGGT
+
+### Genomförda förbättringar
+
+#### 1. Web App Manifest
+
+`public/manifest.json` med:
+
+- App-namn och beskrivning
+- Ikoner i alla storlekar (72-512px)
+- Standalone display-mode
+- App shortcuts för snabbåtkomst
+- Svensk lokalisering
+
+#### 2. Service Worker
+
+`public/sw.js` med:
+
+- **Offline-stöd** - Visar offline.html när ingen anslutning finns
+- **Cache-strategier:**
+  - Network-first för API-anrop
+  - Cache-first för bilder
+  - Stale-while-revalidate för HTML/JS/CSS
+- **Background sync** - Förberett för offline-mutations
+- **Push notifications** - Infrastruktur på plats
+
+#### 3. Ikoner
+
+Genererade SVG-ikoner i 8 storlekar:
+
+- 72x72, 96x96, 128x128, 144x144
+- 152x152, 192x192, 384x384, 512x512
+
+#### 4. iOS/Android-stöd
+
+- Apple touch icons
+- Apple splash screens  
+- Meta-taggar för fullskärmsläge
+
+### Filer skapade
+
+```
+public/
+├── manifest.json      # PWA manifest
+├── sw.js              # Service worker
+├── offline.html       # Offline fallback-sida
+└── icons/
+    ├── icon.svg       # Källikon
+    ├── icon-72x72.svg
+    ├── icon-96x96.svg
+    └── ... (alla storlekar)
+
+src/lib/
+└── serviceWorker.js   # SW registration + install prompt
+```
+
+### Uppdaterade filer
+
+- `public/index.html` - PWA meta-taggar
+- `src/index.js` - SW-registrering
+
+### Build-status
+
+```bash
+✅ npm run build - LYCKADES
+   264.03 kB gzipped bundle (+477 B)
+```
+
+### Installation
+
+Efter deploy kan appen installeras:
+
+1. **iOS Safari:** Dela → Lägg till på hemskärmen
+2. **Android Chrome:** Meny → Installera app
+3. **Desktop Chrome:** Installera-knapp i adressfältet
+
+---
+
+## 2026-01-28 - Fas 16: React Query Integration
+
+### 📋 Projektöversikt
+
+**Mål:** Implementera React Query (@tanstack/react-query) för datacaching och state management.
+
+**Status:** ✅ IMPLEMENTERAT & BYGGT
+
+### Genomförda förbättringar
+
+#### 1. Ny infrastruktur
+
+```javascript
+frontend/src/lib/
+├── queryClient.js        # QueryClient config + queryKeys factory
+
+frontend/src/lib/hooks/
+├── index.js              # Barrel export
+├── useJobs.js            # Jobs hooks (CRUD + optimistic updates)
+├── useCustomers.js       # Customers hooks (CRUD)
+├── useLeads.js           # Leads hooks (CRUD)
+└── useNotes.js           # Notes hooks (CRUD + reminders)
+```
+
+#### 2. QueryClient-konfiguration
+
+- **staleTime:** 5 minuter (data anses fräsch)
+- **gcTime:** 30 minuter (garbage collection)
+- **refetchOnWindowFocus:** Aktiverat
+- **retry:** 1 försök vid fel
+
+#### 3. Query Keys Factory
+
+Centraliserad hantering av cache-nycklar för:
+
+- Customers, Jobs, Leads, Notes
+- Inbox, Messages, Boats
+- Invoices, Settings, Trash
+
+#### 4. Tillgängliga hooks
+
+| Hook | Typ | Beskrivning |
+|------|-----|-------------|
+| `useJobs()` | Query | Hämta jobb med filter |
+| `useJob(id)` | Query | Hämta enskilt jobb |
+| `useUpdateJobStatus()` | Mutation | Optimistic status update |
+| `useCustomersOverview()` | Query | Hämta kundöversikt |
+| `useLeads()` | Query | Hämta leads |
+| `useNotes()` | Query | Hämta anteckningar |
+
+#### 5. Optimistic Updates
+
+`useUpdateJobStatus` implementerar optimistic updates:
+
+- Uppdaterar UI direkt utan att vänta på server
+- Rollback vid fel
+- Automatisk synkronisering efteråt
+
+### Build-status
+
+```bash
+✅ npm run build - LYCKADES
+   263.56 kB gzipped bundle (+8.16 kB från React Query)
+```
+
+### Filer skapade
+
+- `frontend/src/lib/queryClient.js`
+- `frontend/src/lib/hooks/` (5 filer)
+
+### Användning
+
+```javascript
+// Exempel: Hämta jobb med caching
+import { useJobs, useUpdateJobStatus } from '../lib/hooks';
+
+const { data: jobs, isLoading, error } = useJobs({ status: 'active' });
+const updateStatus = useUpdateJobStatus();
+
+// Optimistic update
+updateStatus.mutate({ jobId: '123', status: 'completed' });
+```
+
+---
+
+## 2026-01-28 - Fas 15: JobDetail Komponentmodularisering
+
+### 📋 Projektöversikt
+
+**Mål:** Bryta ut monolitisk `JobDetail.jsx` (882 rader) i återanvändbara komponenter.
+
+**Status:** ✅ IMPLEMENTERAT & BYGGT
+
+### Genomförda förbättringar
+
+#### 1. Ny komponentstruktur
+
+```
+frontend/src/components/job/
+├── index.js           # Barrel export
+├── JobDetailHeader.jsx # Titel, status, snabbknappar
+├── JobInfoCard.jsx    # Jobbinfo med visnings-/redigeringsläge
+├── JobItemsTable.jsx  # Artiklar & timmar
+└── JobSidebar.jsx     # Kund, båt, metadata, radera
+
+frontend/src/lib/
+└── jobConstants.js    # STATUS_LABELS, JOB_TYPE_LABELS, etc.
+```
+
+#### 2. Storleksreduktion
+
+| Fil | Före | Efter | Reducering |
+|-----|------|-------|------------|
+| `JobDetail.jsx` | 882 rader | ~250 rader | **-72%** |
+
+Den ursprungliga logiken är nu fördelad på:
+
+| Ny komponent | Rader | Ansvar |
+|--------------|-------|--------|
+| `JobDetailHeader.jsx` | ~80 | Titel, status badges, quick actions |
+| `JobInfoCard.jsx` | ~230 | Jobbinfo med view/edit-lägen |
+| `JobItemsTable.jsx` | ~200 | Artiklar med add/delete |
+| `JobSidebar.jsx` | ~150 | Kund, båt, metadata, delete |
+| `jobConstants.js` | ~75 | Alla labels och getQuickActions() |
+
+#### 3. Fördelar
+
+- **Återanvändbarhet:** Komponenterna kan användas på andra ställen
+- **Testbarhet:** Enklare att enhetstesta mindre komponenter
+- **Läsbarhet:** Tydligare separation of concerns
+- **Underhåll:** Hitta rätt kod snabbare
+
+### Build-status
+
+```
+✅ npm run build - LYCKADES
+   255.4 kB gzipped bundle (+364 B)
+```
+
+### Filer skapade
+
+- 6 nya filer i `frontend/src/components/job/`
+- 1 ny fil: `frontend/src/lib/jobConstants.js`
+
+---
+
+## 2026-01-28 - Fas 14: API-Modularisering
+
+### 📋 Projektöversikt
+
+**Mål:** Dela upp monolitisk `api.js` (1282 rader) i hanterbara moduler.
+
+**Status:** ✅ IMPLEMENTERAT & BYGGT
+
+### Genomförda förbättringar
+
+#### 1. Ny mappstruktur
+
+```
+frontend/src/lib/api/
+├── index.js           # Re-exporterar alla API:er (bakåtkompatibel)
+├── helpers.js         # Gemensam formatResponse + supabase-export
+├── customersAPI.js    # Kundhantering
+├── leadsAPI.js        # Lead-hantering
+├── messagesAPI.js     # Meddelandehantering
+├── trashAPI.js        # Papperskorg
+├── inboxAPI.js        # Inbox-formulär
+├── jobsAPI.js         # Jobbhantering
+├── jobItemsAPI.js     # Jobb-rader
+├── jobImagesAPI.js    # Jobb-bilder med storage
+├── boatsAPI.js        # Båthantering
+├── invoicesAPI.js     # Fakturering
+├── invoiceItemsAPI.js # Fakturarader
+├── settingsAPI.js     # Inställningar
+└── notesAPI.js        # Anteckningar med bilder
+```
+
+#### 2. Bakåtkompatibilitet
+
+Alla befintliga imports fungerar **utan ändringar**:
+
+```javascript
+// Fungerar fortfarande exakt som förut
+import { customersAPI, jobsAPI } from '../lib/api';
+```
+
+JavaScript-moduler hittar automatiskt `index.js` i mappen.
+
+#### 3. Kodreducering per modul
+
+| Modul | Rader | Ansvar |
+|-------|-------|--------|
+| `notesAPI.js` | ~250 | Största - CRUD, bilder, sök, påminnelser |
+| `invoicesAPI.js` | ~185 | Fakturor med PDF-hantering |
+| `trashAPI.js` | ~100 | Soft-delete med återställning |
+| `jobImagesAPI.js` | ~95 | Bilduppladdning till Storage |
+| `customersAPI.js` | ~95 | Kundöversikt med filtrering |
+| `jobsAPI.js` | ~85 | Jobb med relationer |
+| Övriga | ~30-60 | CRUD-operationer |
+
+### Tekniska fördelar
+
+- **Enklare underhåll:** Hitta rätt kod snabbare
+- **Mindre merge-konflikter:** Parallellt arbete i olika moduler
+- **Bättre testbarhet:** Mocka enskilda moduler
+- **Snabbare navigering:** IDE-stöd för mindre filer
+
+### Build-status
+
+```
+✅ npm run build - LYCKADES
+   Compiled with warnings (endast ESLint no-unused-vars)
+   255.03 kB gzipped bundle
+```
+
+### Filer skapade
+
+- 15 nya filer i `frontend/src/lib/api/`
+
+### Filer borttagna
+
+- `frontend/src/lib/api.js` (1282 rader → ersatt av moduler)
+
+---
+
+## 2026-01-28 - Fas 13: Plattformskonsolidering & Kodförbättringar
+
+### 📋 Projektöversikt
+
+**Mål:** Städa kodbasen, eliminera duplicering och förbättra användarupplevelsen.
+
+**Status:** ✅ IMPLEMENTERAT & DEPLOYAT
+
+### Genomförda förbättringar
+
+#### 1. Konsoliderad Utility-kod
+
+Skapade `lib/textUtils.js` - centraliserade funktioner för textbearbetning:
+
+| Funktion | Beskrivning |
+|----------|-------------|
+| `decodeHTML` | Avkodar HTML-entiteter (ä, ö, å, etc.) |
+| `decodeQuotedPrintable` | Avkodar quoted-printable email-kodning |
+| `fixSwedishEncoding` | Fixar mojibake/felkodade svenska tecken |
+| `cleanEmailBody` | Tar bort citerade svar och formatering |
+| `extractQuotedContent` | Extraherar citerad text separat |
+| `decodeEmailContent` | Kombination av alla avkodningar |
+| `processEmailBody` | Full pipeline för email-visning |
+
+**Uppdaterade komponenter:**
+
+- `Timeline.jsx` - Minskad med ~180 rader
+- `Messages.jsx` - Importerar nu från textUtils
+
+#### 2. Namngivningskonvention
+
+Korrigerade inkonsekvent namngivning:
+
+| Före | Efter |
+|------|-------|
+| `Trash_.jsx` / `Trash_` | `Trash.jsx` / `Trash` |
+| `Calendar_.jsx` / `Calendar_` | `Calendar.jsx` / `Calendar` |
+| `Notes_.jsx` / `Notes_` | `Notes.jsx` / `Notes` |
+
+- Uppdaterade alla imports i `App.jsx`
+- Löste namnkonflikt med lucide-react `Trash`-ikon → `TrashIcon`
+
+#### 3. Ångra-funktionalitet för Radering
+
+Ny hook och komponent för undoable actions:
+
+**`hooks/useUndoableAction.js`**
+
+```javascript
+// Användning:
+const { initiateAction, cancelAction, isPending, progress } = useUndoableAction({
+    timeout: 5000,  // 5 sekunder
+    onExecute: (data) => deleteMessage(data),
+    onUndo: (data) => restoreMessage(data)
+});
+```
+
+**`components/UndoToast.jsx`**
+
+- Visar nedräkning med progressbar
+- "Ångra"-knapp för att avbryta
+- Meddelande döljs direkt men raderas efter timern
+
+**Flöde:**
+
+1. Användare sveper för att radera
+2. Meddelande döljs omedelbart
+3. Toast visas med 5-sekunders timer
+4. Tryck "Ångra" → meddelandet återställs
+5. Timer går ut → meddelandet raderas permanent
+
+#### 4. Kodhygien
+
+- **Borttaget:** Alla `.bak`-filer
+- **Borttaget:** Debug `console.log`-satser
+- **Fixat:** Duplicerade nycklar i textUtils.js
+- **Fixat:** ESLint varningar för oanvände variabler
+
+### Teknisk arkitektur
+
+```
+frontend/src/
+├── lib/
+│   └── textUtils.js           # NYT: Centraliserade text-hjälpfunktioner
+├── hooks/
+│   └── useUndoableAction.js   # NYT: Hook för undoable actions
+├── components/
+│   └── UndoToast.jsx          # NYT: Toast med ångra-funktionalitet
+└── pages/
+    ├── Trash.jsx              # Omdöpt från Trash_.jsx
+    ├── Calendar.jsx           # Omdöpt från Calendar_.jsx
+    ├── Notes.jsx              # Omdöpt från Notes_.jsx
+    └── Messages.jsx           # Uppdaterad med undo
+```
+
+### Resultat
+
+- **Kodreducering:** ~200 rader duplicerad kod eliminerad
+- **Konsistens:** Enhetlig namngivning i hela projektet
+- **UX-förbättring:** Användare kan ångra oavsiktliga raderingar
+- **Underhåll:** Lättare att uppdatera textbearbetning på ett ställe
+
+---
+
 ## 2026-01-27 - AI-Assistent: Lead-konvertering & Svarsförslag
 
 ### 📋 Projektöversikt
