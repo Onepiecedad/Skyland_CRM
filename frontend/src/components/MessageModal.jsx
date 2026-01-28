@@ -32,7 +32,7 @@ const cleanEmailContent = (text) => {
     cleaned = cleaned.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
     cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '');
     cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
-    cleaned = cleaned.replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n');
+    cleaned = cleaned.replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n\n');
     cleaned = cleaned.replace(/<[^>]*>/g, '');
 
     // 2. Dekoda HTML-entiteter
@@ -54,6 +54,35 @@ const cleanEmailContent = (text) => {
     for (const [wrong, correct] of Object.entries(swedishFixes)) {
         cleaned = cleaned.replace(new RegExp(wrong, 'g'), correct);
     }
+
+    // 4. Lägg till radbrytningar före vanliga nyckelord om de saknas
+    // Detta hjälper med emails som har text ihopklistrad
+    const breakBeforePatterns = [
+        /(?<!\n)(Hej\s)/gi,
+        /(?<!\n)(Vad:)/gi,
+        /(?<!\n)(Var:)/gi,
+        /(?<!\n)(När:)/gi,
+        /(?<!\n)(Snarast möjligt)/gi,
+        /(?<!\n)(Antal företag)/gi,
+        /(?<!\n)(Frågor och svar)/gi,
+        /(?<!\n)(Beskriv vad)/gi,
+        /(?<!\n)(Om du inte)/gi,
+        /(?<!\n)(Ändra bevakningsprofil)/gi,
+        /(?<!\n)(Vänliga hälsningar)/gi,
+        /(?<!\n)(Med vänlig hälsning)/gi,
+        /(?<!\n)(Mvh)/gi,
+        /(?<!\n)(KUNDSERVICE)/gi,
+        /(?<!\n)(Offerta\.se\s*-+>)/gi,
+    ];
+
+    for (const pattern of breakBeforePatterns) {
+        cleaned = cleaned.replace(pattern, '\n\n$1');
+    }
+
+    // 5. Normalisera multipla mellanslag och radbrytningar
+    cleaned = cleaned.replace(/[ \t]+/g, ' ');  // Multipla mellanslag -> ett
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n'); // Max 2 radbrytningar i rad
+    cleaned = cleaned.trim();
 
     return cleaned;
 };
