@@ -48,8 +48,11 @@ const cleanEmailContent = (text) => {
         cleaned = cleaned.replace(new RegExp(wrong, 'g'), correct);
     }
 
-    // 4. Lägg till radbrytningar före vanliga nyckelord om de saknas
-    // Detta hjälper med emails som har text ihopklistrad
+    // 4. Lägg till radbrytningar för bättre läsbarhet
+    // 4a. Bryt efter meningar (punkt följt av mellanslag och versal)
+    cleaned = cleaned.replace(/\.(\s+)([A-ZÅÄÖ])/g, '.\n\n$2');
+
+    // 4b. Lägg till radbrytningar före vanliga nyckelord om de saknas
     const breakBeforePatterns = [
         /(?<!\n)(Hej\s)/gi,
         /(?<!\n)(Vad:)/gi,
@@ -66,6 +69,15 @@ const cleanEmailContent = (text) => {
         /(?<!\n)(Mvh)/gi,
         /(?<!\n)(KUNDSERVICE)/gi,
         /(?<!\n)(Offerta\.se\s*-+>)/gi,
+        // Tradit och liknande finansmail
+        /(?<!\n)(LADDA NER)/gi,
+        /(?<!\n)(Tveka inte)/gi,
+        /(?<!\n)(Du har fått)/gi,
+        /(?<!\n)(Märk våra)/gi,
+        /(?<!\n)(Du bör överväga)/gi,
+        /(?<!\n)(Närhelst)/gi,
+        /(?<!\n)(Tradit ber dig)/gi,
+        /(?<!\n)(CFD:er är)/gi,
     ];
 
     for (const pattern of breakBeforePatterns) {
