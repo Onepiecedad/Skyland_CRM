@@ -14,6 +14,8 @@ import { JobDetail } from './pages/JobDetail';
 import { JobCreate } from './pages/JobCreate';
 import { LeadsPage } from './pages/LeadsPage';
 import { Trash_ } from './pages/Trash';
+import { Calendar_ } from './pages/Calendar';
+import { Notes_ } from './pages/Notes';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 
@@ -124,6 +126,24 @@ function AppContent() {
                     element={
                         <ProtectedRoute>
                             <Trash_ />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/kalender"
+                    element={
+                        <ProtectedRoute>
+                            <Calendar_ />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/anteckningar"
+                    element={
+                        <ProtectedRoute>
+                            <Notes_ />
                         </ProtectedRoute>
                     }
                 />

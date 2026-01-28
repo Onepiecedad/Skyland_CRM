@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, Wrench, Mail, Users, Plus, StickyNote, UserPlus, Ship, X, Trash2, MessageSquarePlus } from 'lucide-react';
+import { Home, Search, Wrench, Mail, Users, Plus, StickyNote, UserPlus, Ship, X, Trash2, MessageSquarePlus, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { messagesAPI, trashAPI } from '../lib/api';
 import { QuickNoteModal } from './QuickNoteModal';
 
 const navItems = [
     { path: '/', label: 'Idag', icon: Home },
-    { path: '/leads', label: 'Förfråg.', icon: Search },
+    { path: '/kalender', label: 'Kalender', icon: Calendar },
     // Center button will be inserted here
-    { path: '/meddelanden', label: 'Inkorgen', icon: Mail },
-    { path: '/kunder', label: 'Kunder', icon: Users },
+    { path: '/meddelanden', label: 'Inkorg', icon: Mail },
+    { path: '/anteckningar', label: 'Anteckn.', icon: StickyNote },
 ];
 
 // Quick action menu items

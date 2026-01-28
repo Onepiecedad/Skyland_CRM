@@ -42,6 +42,8 @@ const cleanEmailContent = (text) => {
     cleaned = cleaned.replace(/&gt;/gi, '>');
     cleaned = cleaned.replace(/&quot;/gi, '"');
     cleaned = cleaned.replace(/&#(\d+);/g, (m, d) => String.fromCharCode(d));
+    // Hex entities like &#xF6; &#xE4; etc.
+    cleaned = cleaned.replace(/&#x([0-9A-Fa-f]+);/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
 
     // 3. Fixa svenska tecken (mojibake)
     const swedishFixes = {
