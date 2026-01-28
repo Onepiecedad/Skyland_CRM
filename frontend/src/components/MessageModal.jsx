@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { decodeHTML } from '../lib/textUtils';
 import {
     X,
     User,
@@ -24,9 +25,11 @@ import { useState } from 'react';
 const cleanEmailContent = (text) => {
     if (!text) return '';
 
-    let cleaned = text;
+    // 1. Avkoda ALLA HTML-entiteter korrekt via DOM-parsing
+    // Detta hanterar &ouml;, &auml;, &aring; och alla andra entiteter
+    let cleaned = decodeHTML(text);
 
-    // 1. Ta bort HTML-taggar och style-block
+    // 2. Ta bort HTML-taggar och style-block
     cleaned = cleaned.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
     cleaned = cleaned.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
     cleaned = cleaned.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '');
@@ -35,17 +38,7 @@ const cleanEmailContent = (text) => {
     cleaned = cleaned.replace(/<\/(p|div|h[1-6]|li|tr)>/gi, '\n\n');
     cleaned = cleaned.replace(/<[^>]*>/g, '');
 
-    // 2. Dekoda HTML-entiteter
-    cleaned = cleaned.replace(/&nbsp;/gi, ' ');
-    cleaned = cleaned.replace(/&amp;/gi, '&');
-    cleaned = cleaned.replace(/&lt;/gi, '<');
-    cleaned = cleaned.replace(/&gt;/gi, '>');
-    cleaned = cleaned.replace(/&quot;/gi, '"');
-    cleaned = cleaned.replace(/&#(\d+);/g, (m, d) => String.fromCharCode(d));
-    // Hex entities like &#xF6; &#xE4; etc.
-    cleaned = cleaned.replace(/&#x([0-9A-Fa-f]+);/g, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
-
-    // 3. Fixa svenska tecken (mojibake)
+    // 3. Fixa svenska tecken (mojibake som kan finnas efter avkodning)
     const swedishFixes = {
         'Ã¥': 'å', 'Ã¤': 'ä', 'Ã¶': 'ö',
         'Ã…': 'Å', 'Ã„': 'Ä', 'Ã–': 'Ö',
