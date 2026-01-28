@@ -95,6 +95,7 @@ export const Today = () => {
                     customer_id,
                     seen
                 `)
+                .is('deleted_at', null)
                 .order('received_at', { ascending: false })
                 .limit(5);
 
@@ -105,7 +106,8 @@ export const Today = () => {
                 const { data: inboxMsgs } = await supabase
                     .from('messages')
                     .select('id, subject, from_email, from_name, to_email, direction, received_at, body_preview, body_full, customer_id, seen')
-                    .in('id', leadMessageIds);
+                    .in('id', leadMessageIds)
+                    .is('deleted_at', null);
                 inboxMessagesData = inboxMsgs || [];
             }
             setInboxMessages(inboxMessagesData);
