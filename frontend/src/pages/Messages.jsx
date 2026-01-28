@@ -7,6 +7,7 @@ import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
 import { MessageModal } from '../components/MessageModal';
 import { ReplyModal } from '../components/ReplyModal';
+import { SwipeableCard } from '../components/SwipeableCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,8 +22,7 @@ import {
     CheckCheck,
     Inbox,
     Send,
-    User,
-    Trash2
+    User
 } from 'lucide-react';
 
 // ============================================
@@ -138,7 +138,7 @@ const extractSenderName = (message) => {
 // KOMPONENT: MessageRow - En rad i listan
 // ============================================
 
-const MessageRow = ({ message, onClick, onDelete, isUnread, isDeleting }) => {
+const MessageRow = ({ message, onClick, isUnread }) => {
     const senderName = extractSenderName(message);
     const subject = fixSwedishEncoding(decodeQuotedPrintable(message.subject || 'Inget ämne'));
     const preview = cleanPreview(message.body_preview || message.body_full || '');
@@ -162,18 +162,11 @@ const MessageRow = ({ message, onClick, onDelete, isUnread, isDeleting }) => {
         } catch (e) { }
     }
 
-    const handleDelete = (e) => {
-        e.stopPropagation();
-        if (onDelete) {
-            onDelete(message.id);
-        }
-    };
-
     return (
         <div
-            className={`relative w-full text-left p-4 rounded-lg border transition-all duration-150 hover:bg-muted/50 hover:border-primary/20 group cursor-pointer ${isUnread
-                ? 'bg-primary/5 border-primary/20'
-                : 'bg-card border-border'
+            className={`relative w-full text-left p-4 transition-all duration-150 hover:bg-muted/50 group cursor-pointer ${isUnread
+                ? 'bg-primary/5'
+                : 'bg-card'
                 }`}
             onClick={onClick}
         >
@@ -224,20 +217,6 @@ const MessageRow = ({ message, onClick, onDelete, isUnread, isDeleting }) => {
                         {preview || '(Inget innehåll)'}
                     </p>
                 </div>
-
-                {/* Delete button - visible on hover (desktop) or always on mobile */}
-                <button
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="shrink-0 p-2 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors md:opacity-0 md:group-hover:opacity-100 active:scale-95"
-                    aria-label="Radera meddelande"
-                >
-                    {isDeleting ? (
-                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                        <Trash2 className="w-5 h-5" />
-                    )}
-                </button>
             </div>
         </div>
     );
@@ -402,13 +381,9 @@ export const Messages = () => {
         setShowReplyModal(true);
     };
 
-    const handleDelete = async (messageId, skipConfirm = false) => {
-        // When deleting via swipe, skip confirmation for Apple Mail-like feel
-        if (!skipConfirm && !window.confirm('Är du säker på att du vill radera detta meddelande?')) {
-            return;
-        }
-
+    const handleDelete = async (messageId) => {
         try {
+            setDeletingId(messageId);
             const { error } = await supabase
                 .from('messages')
                 .delete()
@@ -431,6 +406,8 @@ export const Messages = () => {
                 description: 'Kunde inte radera meddelandet',
                 variant: 'destructive',
             });
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -449,7 +426,7 @@ export const Messages = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0" {...handlers}>
+        <div className="min-h-screen bg-background flex flex-col pb-24 md:pb-0" {...handlers}>
             <Header />
             <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
 
@@ -561,21 +538,22 @@ export const Messages = () => {
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-0 rounded-lg border overflow-hidden">
                             {filteredMessages.map((message) => (
-                                <MessageRow
+                                <SwipeableCard
                                     key={message.id}
-                                    message={message}
-                                    onClick={() => handleMessageClick(message)}
-                                    onDelete={async (id) => {
-                                        if (!window.confirm('Radera detta meddelande?')) return;
-                                        setDeletingId(id);
-                                        await handleDelete(id, true);
-                                        setDeletingId(null);
-                                    }}
-                                    isUnread={message.direction === 'inbound' && !message.seen}
-                                    isDeleting={deletingId === message.id}
-                                />
+                                    onSwipeRight={() => handleDelete(message.id)}
+                                    rightLabel="Radera"
+                                    rightColor="bg-red-500 hover:bg-red-600"
+                                    disabled={deletingId === message.id}
+                                    className="border-b last:border-b-0"
+                                >
+                                    <MessageRow
+                                        message={message}
+                                        onClick={() => handleMessageClick(message)}
+                                        isUnread={message.direction === 'inbound' && !message.seen}
+                                    />
+                                </SwipeableCard>
                             ))}
                         </div>
                     )}

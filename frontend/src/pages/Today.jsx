@@ -7,7 +7,10 @@ import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
 import { SwipeableCard } from '../components/SwipeableCard';
 import { MessageModal } from '../components/MessageModal';
+import { LeadCard } from '../components/LeadCard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, startOfDay, endOfDay } from 'date-fns';
 import { sv } from 'date-fns/locale';
@@ -42,6 +45,8 @@ export const Today = () => {
     const [isMessagesExpanded, setIsMessagesExpanded] = useState(false);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [inboxMessages, setInboxMessages] = useState([]); // For leads with message_id
+    const [selectedLeadData, setSelectedLeadData] = useState(null);
+    const [showLeadModal, setShowLeadModal] = useState(false);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -310,31 +315,9 @@ export const Today = () => {
                                             <div
                                                 className="group flex items-start pb-2 sm:pb-3 pt-1 sm:pt-2 hover:bg-muted/50 transition-colors px-3 sm:px-4 cursor-pointer"
                                                 onClick={() => {
-                                                    // Find the corresponding inbox message for this lead
-                                                    const inboxMsg = inboxMessages.find(m => m.id === lead.message_id);
-                                                    if (inboxMsg) {
-                                                        // Format message for modal (add customer info if available)
-                                                        const msgWithCustomer = {
-                                                            ...inboxMsg,
-                                                            customers: lead.customer_id ? { id: lead.customer_id, name: lead.name } : null
-                                                        };
-                                                        setSelectedMessage(msgWithCustomer);
-                                                    } else {
-                                                        // Create pseudo-message from lead data
-                                                        const pseudoMessage = {
-                                                            id: `lead-${lead.id}`,
-                                                            subject: lead.ai_category || 'Ny förfrågan',
-                                                            from_name: lead.name || 'Okänd',
-                                                            from_email: lead.email || '',
-                                                            body_full: lead.ai_summary || '',
-                                                            body_preview: lead.ai_summary || '',
-                                                            received_at: lead.created_at,
-                                                            direction: 'inbound',
-                                                            seen: false,
-                                                            customers: lead.customer_id ? { id: lead.customer_id, name: lead.name } : null
-                                                        };
-                                                        setSelectedMessage(pseudoMessage);
-                                                    }
+                                                    // Open the same LeadCard modal as in LeadsPage
+                                                    setSelectedLeadData(lead);
+                                                    setShowLeadModal(true);
                                                 }}
                                             >
                                                 <InnerContent />
@@ -551,6 +534,30 @@ export const Today = () => {
                 onReply={() => { }}
                 onDelete={() => { }}
             />
+
+            {/* Lead Modal - Same as in LeadsPage */}
+            <Dialog open={showLeadModal} onOpenChange={setShowLeadModal}>
+                <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+                    <LeadCard
+                        lead={selectedLeadData}
+                        onSuccess={() => {
+                            setShowLeadModal(false);
+                            setSelectedLeadData(null);
+                            fetchDashboardData();
+                        }}
+                    />
+                    <Button
+                        variant="outline"
+                        className="w-full mt-4"
+                        onClick={() => {
+                            setShowLeadModal(false);
+                            setSelectedLeadData(null);
+                        }}
+                    >
+                        Stäng
+                    </Button>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
