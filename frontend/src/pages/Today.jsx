@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { leadsAPI } from '../lib/api';
+import { leadsAPI, messagesAPI } from '../lib/api';
 import { formatCustomerName } from '../lib/formatName';
 import { Header } from '../components/Header';
 import { usePullToRefresh, PullToRefreshIndicator } from '../components/PullToRefresh';
@@ -47,6 +47,7 @@ export const Today = () => {
     const [inboxMessages, setInboxMessages] = useState([]); // For leads with message_id
     const [selectedLeadData, setSelectedLeadData] = useState(null);
     const [showLeadModal, setShowLeadModal] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -178,6 +179,22 @@ export const Today = () => {
         onRefresh: fetchDashboardData,
         threshold: 80
     });
+
+    // Handle message deletion (soft delete)
+    const handleDeleteMessage = async (messageId) => {
+        setDeletingId(messageId);
+        try {
+            await messagesAPI.softDelete(messageId);
+            setMessages(prev => prev.filter(m => m.id !== messageId));
+            setSelectedMessage(null);
+            toast.success('Meddelande flyttat till papperskorgen');
+        } catch (error) {
+            console.error('Delete error:', error);
+            toast.error('Kunde inte radera meddelande');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     if (loading) return (
         <div className="min-h-screen bg-background flex flex-col pb-20 md:pb-0">
@@ -466,7 +483,7 @@ export const Today = () => {
                             <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Link>
                     </CardHeader>
-                    <CardContent className={`space-y-2 sm:space-y-3 ${isMessagesExpanded ? 'block' : 'hidden'} md:block`}>
+                    <CardContent className={`space-y-0 ${isMessagesExpanded ? 'block' : 'hidden'} md:block p-0`}>
                         {messages.length === 0 ? (
                             <p className="text-muted-foreground text-center py-4 text-sm">Inga meddelanden</p>
                         ) : (
@@ -481,44 +498,50 @@ export const Today = () => {
                                 const hasCustomer = !!message.customer_id;
 
                                 return (
-                                    <div
+                                    <SwipeableCard
                                         key={message.id}
-                                        onClick={() => setSelectedMessage(message)}
-                                        className={`group flex items-start gap-2 sm:gap-3 border-b last:border-0 pb-2 sm:pb-3 last:pb-0 hover:bg-accent -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 transition-colors cursor-pointer rounded-md ${message.direction === 'inbound' && !message.seen ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}
+                                        onSwipeRight={() => handleDeleteMessage(message.id)}
+                                        rightLabel="Radera"
+                                        className="border-b last:border-0"
                                     >
-                                        <div className="relative shrink-0">
-                                            <Mail className="h-4 w-4 text-muted-foreground mt-0.5 group-hover:text-primary" />
-                                            {message.direction === 'inbound' && !message.seen && (
-                                                <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className={`text-sm sm:text-base truncate group-hover:text-primary transition-colors ${message.direction === 'inbound' && !message.seen ? 'font-semibold' : 'font-medium'}`}>
-                                                    {message.subject || 'Inget ämne'}
-                                                </span>
-                                                {message.direction === 'outbound' && (
-                                                    <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">
-                                                        Skickat
+                                        <div
+                                            onClick={() => setSelectedMessage(message)}
+                                            className={`group flex items-start gap-2 sm:gap-3 pb-2 sm:pb-3 last:pb-0 hover:bg-accent px-3 sm:px-4 py-2 transition-colors cursor-pointer ${message.direction === 'inbound' && !message.seen ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}
+                                        >
+                                            <div className="relative shrink-0">
+                                                <Mail className="h-4 w-4 text-muted-foreground mt-0.5 group-hover:text-primary" />
+                                                {message.direction === 'inbound' && !message.seen && (
+                                                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className={`text-sm sm:text-base truncate group-hover:text-primary transition-colors ${message.direction === 'inbound' && !message.seen ? 'font-semibold' : 'font-medium'}`}>
+                                                        {message.subject || 'Inget ämne'}
                                                     </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
-                                                <span className="truncate">{message.from_name || message.from_email || 'Okänd'}</span>
-                                                {message.customers && (
-                                                    <>
-                                                        <span>→</span>
-                                                        <span className="text-primary group-hover:underline truncate">
-                                                            {formatCustomerName(message.customers.name, message.customers.email)}
+                                                    {message.direction === 'outbound' && (
+                                                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">
+                                                            Skickat
                                                         </span>
-                                                    </>
-                                                )}
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                                                    <span className="truncate">{message.from_name || message.from_email || 'Okänd'}</span>
+                                                    {message.customers && (
+                                                        <>
+                                                            <span>→</span>
+                                                            <span className="text-primary group-hover:underline truncate">
+                                                                {formatCustomerName(message.customers.name, message.customers.email)}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
+                                            <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
+                                                {formattedDate}
+                                            </span>
                                         </div>
-                                        <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
-                                            {formattedDate}
-                                        </span>
-                                    </div>
+                                    </SwipeableCard>
                                 );
                             })
                         )}
@@ -532,7 +555,7 @@ export const Today = () => {
                 message={selectedMessage}
                 onClose={() => setSelectedMessage(null)}
                 onReply={() => { }}
-                onDelete={() => { }}
+                onDelete={(messageId) => handleDeleteMessage(messageId)}
             />
 
             {/* Lead Modal - Same as in LeadsPage */}

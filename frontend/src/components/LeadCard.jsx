@@ -263,45 +263,47 @@ export function LeadCard({ lead, onSuccess }) {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+      {/* Actions - Full width stacked on mobile, row on desktop */}
+      <div className="flex flex-col gap-3 pt-4 border-t">
         {lead.status !== 'won' && lead.status !== 'lost' && lead.status !== 'archived' && (
           <ConvertLeadToJobButton
             lead={lead}
             customer={customer}
             onSuccess={onSuccess}
             variant="default"
-            size="sm"
-            className="flex-1"
+            size="default"
+            className="w-full h-12 text-base font-medium"
           />
         )}
-        {customer && (
-          <Button asChild variant="outline" size="sm" className="flex-1">
-            <Link to={`/kund/${lead.customer_id}`}>
-              <User className="h-4 w-4 mr-2" />
-              Visa kund
-            </Link>
-          </Button>
-        )}
-        {lead.status !== 'won' && lead.status !== 'lost' && lead.status !== 'archived' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={async () => {
-              try {
-                await leadsAPI.update(lead.id || lead.lead_id, { status: 'archived' });
-                toast.success('Förfrågan arkiverad');
-                onSuccess?.();
-              } catch (err) {
-                toast.error('Kunde inte arkivera');
-              }
-            }}
-          >
-            <Archive className="h-4 w-4 mr-2" />
-            Arkivera
-          </Button>
-        )}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {customer && (
+            <Button asChild variant="outline" size="default" className="w-full sm:flex-1 h-12 text-base">
+              <Link to={`/kund/${lead.customer_id}`}>
+                <User className="h-5 w-5 mr-2" />
+                Visa kund
+              </Link>
+            </Button>
+          )}
+          {lead.status !== 'won' && lead.status !== 'lost' && lead.status !== 'archived' && (
+            <Button
+              variant="outline"
+              size="default"
+              className="w-full sm:flex-1 h-12 text-base"
+              onClick={async () => {
+                try {
+                  await leadsAPI.update(lead.id || lead.lead_id, { status: 'archived' });
+                  toast.success('Förfrågan arkiverad');
+                  onSuccess?.();
+                } catch (err) {
+                  toast.error('Kunde inte arkivera');
+                }
+              }}
+            >
+              <Archive className="h-5 w-5 mr-2" />
+              Arkivera
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import { JobList } from './pages/JobList';
 import { JobDetail } from './pages/JobDetail';
 import { JobCreate } from './pages/JobCreate';
 import { LeadsPage } from './pages/LeadsPage';
+import { Trash_ } from './pages/Trash';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 
@@ -114,6 +115,15 @@ function AppContent() {
                                 <Header />
                                 <JobDetail />
                             </div>
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/papperskorg"
+                    element={
+                        <ProtectedRoute>
+                            <Trash_ />
                         </ProtectedRoute>
                     }
                 />

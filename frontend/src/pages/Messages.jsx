@@ -271,6 +271,7 @@ export const Messages = () => {
                         email
                     )
                 `)
+                .is('deleted_at', null)
                 .order(sortField, { ascending: sortDirection === 'asc' })
                 .limit(100);
 
@@ -384,16 +385,17 @@ export const Messages = () => {
     const handleDelete = async (messageId) => {
         try {
             setDeletingId(messageId);
+            // Soft delete - move to trash
             const { error } = await supabase
                 .from('messages')
-                .delete()
+                .update({ deleted_at: new Date().toISOString() })
                 .eq('id', messageId);
 
             if (error) throw error;
 
             toast({
-                title: 'Raderat',
-                description: 'Meddelandet har raderats',
+                title: 'Flyttat till papperskorgen',
+                description: 'Meddelandet kan återställas från papperskorgen',
             });
 
             setMessages(prev => prev.filter(m => m.id !== messageId));

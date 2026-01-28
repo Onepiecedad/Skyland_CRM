@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, Wrench, Mail, Users, Plus, StickyNote, UserPlus, Ship, X } from 'lucide-react';
+import { Home, Search, Wrench, Mail, Users, Plus, StickyNote, UserPlus, Ship, X, Trash2, MessageSquarePlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { messagesAPI } from '../lib/api';
+import { messagesAPI, trashAPI } from '../lib/api';
 import { QuickNoteModal } from './QuickNoteModal';
 
 const navItems = [
@@ -13,11 +13,12 @@ const navItems = [
     { path: '/kunder', label: 'Kunder', icon: Users },
 ];
 
-// Quick action menu items (shown on long press)
+// Quick action menu items
 const quickActions = [
     { id: 'note', label: 'Ny anteckning', icon: StickyNote, color: 'bg-blue-500' },
-    { id: 'job', label: 'Nytt jobb', icon: Wrench, color: 'bg-green-500', path: '/jobb/ny' },
-    { id: 'customer', label: 'Ny kund', icon: UserPlus, color: 'bg-purple-500', path: '/kunder' },
+    { id: 'message', label: 'Nytt meddelande', icon: MessageSquarePlus, color: 'bg-emerald-500', path: '/meddelanden?compose=true' },
+    { id: 'customer', label: 'Ny kund', icon: UserPlus, color: 'bg-purple-500', path: '/kunder?new=true' },
+    { id: 'job', label: 'Nytt jobb', icon: Wrench, color: 'bg-green-500', path: '/jobb/nytt' },
     { id: 'boat', label: 'Ny båt', icon: Ship, color: 'bg-cyan-500' },
 ];
 
@@ -25,6 +26,7 @@ export function BottomNav() {
     const location = useLocation();
     const navigate = useNavigate();
     const [unreadCount, setUnreadCount] = useState(0);
+    const [trashCount, setTrashCount] = useState(0);
     const [showQuickMenu, setShowQuickMenu] = useState(false);
     const [showNoteModal, setShowNoteModal] = useState(false);
 
@@ -68,13 +70,10 @@ export function BottomNav() {
         };
     }, []);
 
-    // Center button handlers
+    // Center button handlers - open menu directly on tap
     const handleCenterPress = () => {
-        // Quick tap: open note modal directly
-        if (!isLongPressing) {
-            vibrate();
-            setShowNoteModal(true);
-        }
+        vibrate();
+        setShowQuickMenu(true);
     };
 
     const handleCenterTouchStart = () => {
